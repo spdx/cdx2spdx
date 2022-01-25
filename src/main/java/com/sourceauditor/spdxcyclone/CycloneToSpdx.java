@@ -18,31 +18,39 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import org.cyclonedx.BomParserFactory;
 import org.cyclonedx.exception.ParseException;
+import org.cyclonedx.model.Ancestors;
 import org.cyclonedx.model.Bom;
+import org.cyclonedx.model.BomReference;
+import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
+import org.cyclonedx.model.Component.Scope;
 import org.cyclonedx.model.Composition;
-import org.cyclonedx.model.Copyright;
+import org.cyclonedx.model.Composition.Aggregate;
 import org.cyclonedx.model.Dependency;
+import org.cyclonedx.model.Descendants;
 import org.cyclonedx.model.Evidence;
 import org.cyclonedx.model.ExtensibleType;
 import org.cyclonedx.model.Extension;
 import org.cyclonedx.model.ExternalReference;
-import org.cyclonedx.model.ExternalReference.Type;
 import org.cyclonedx.model.Hash;
 import org.cyclonedx.model.License;
 import org.cyclonedx.model.LicenseChoice;
 import org.cyclonedx.model.Metadata;
 import org.cyclonedx.model.OrganizationalContact;
 import org.cyclonedx.model.OrganizationalEntity;
+import org.cyclonedx.model.Patch;
 import org.cyclonedx.model.Pedigree;
 import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
+import org.cyclonedx.model.Swid;
 import org.cyclonedx.model.Tool;
+import org.cyclonedx.model.Variants;
 import org.cyclonedx.parsers.Parser;
 import org.spdx.jacksonstore.MultiFormatStore;
 import org.spdx.jacksonstore.MultiFormatStore.Format;
@@ -51,6 +59,7 @@ import org.spdx.library.InvalidSPDXAnalysisException;
 import org.spdx.library.ModelCopyManager;
 import org.spdx.library.SpdxConstants;
 import org.spdx.library.model.Checksum;
+import org.spdx.library.model.ExternalRef;
 import org.spdx.library.model.ReferenceType;
 import org.spdx.library.model.Relationship;
 import org.spdx.library.model.SpdxCreatorInformation;
@@ -66,7 +75,6 @@ import org.spdx.library.model.enumerations.ReferenceCategory;
 import org.spdx.library.model.enumerations.RelationshipType;
 import org.spdx.library.model.license.AnyLicenseInfo;
 import org.spdx.library.model.license.ConjunctiveLicenseSet;
-import org.spdx.library.model.license.ExtractedLicenseInfo;
 import org.spdx.library.model.license.InvalidLicenseStringException;
 import org.spdx.library.model.license.LicenseInfoFactory;
 import org.spdx.library.model.license.ListedLicenses;
@@ -269,7 +277,15 @@ public class CycloneToSpdx {
      */
     private static String copyCycloneToSpdx(Bom cycloneBom, ISerializableModelStore spdxModelStore, List<String> warnings) throws InvalidSPDXAnalysisException, CycloneConversionException {
         ModelCopyManager copyManager = new ModelCopyManager();
-        String documentUri = CYCLONE_URI_PREFIX + cycloneBom.getSerialNumber() + "_version_" + cycloneBom.getSpecVersion();  //TODO: Verify this is a valid URI
+        String serialNumber = cycloneBom.getSerialNumber();
+        if (Objects.nonNull(serialNumber)) {
+        	if (serialNumber.startsWith("urn:uuid:")) {
+        		serialNumber = serialNumber.substring("urn:uuid:".length());
+        	}
+        } else {
+        	serialNumber = UUID.randomUUID().toString();
+        }
+        String documentUri = CYCLONE_URI_PREFIX +  serialNumber;
         SpdxDocument spdxDoc = null;
         try {
             spdxDoc = SpdxModelFactory.createSpdxDocument(spdxModelStore, documentUri, copyManager);
@@ -279,61 +295,113 @@ public class CycloneToSpdx {
         }
         copyMetadata(cycloneBom.getMetadata(), cycloneBom.getSpecVersion(), spdxDoc, warnings);
         if (Objects.nonNull(cycloneBom.getExternalReferences()) && !cycloneBom.getExternalReferences().isEmpty()) {
-        	lossOfFidelity(spdxDoc, "externalReferences", cycloneBom.getExternalReferences(), warnings);
+        	retainFidelity(spdxDoc, "externalReferences", cycloneBom.getExternalReferences(), warnings);
         }
         if (Objects.nonNull(cycloneBom.getExtensibleTypes()) && !cycloneBom.getExtensibleTypes().isEmpty()) {
-        	lossOfFidelity(spdxDoc, "extensibleTypes", cycloneBom.getExtensibleTypes(), warnings);
+        	retainFidelity(spdxDoc, "extensibleTypes", cycloneBom.getExtensibleTypes(), warnings);
         }
         if (Objects.nonNull(cycloneBom.getExtensions()) && !cycloneBom.getExtensions().isEmpty()) {
-        	lossOfFidelity(spdxDoc, "extensions", cycloneBom.getExtensions(), warnings);
+        	retainFidelity(spdxDoc, "extensions", cycloneBom.getExtensions(), warnings);
         }
-        Map<String, SpdxElement> componentIdToSpdxElement = copyComponents(cycloneBom.getComponents(), spdxDoc, warnings);
+        Map<String, SpdxElement> componentIdToSpdxElement = new HashMap<>();
+        // Copy the components
+        List<Component> components = cycloneBom.getComponents();
+        if (Objects.nonNull(components)) {
+        	for (Component component:components) {
+        		componentToElement(spdxDoc, component, componentIdToSpdxElement, warnings);
+        	}
+        }
         copyDependencies(cycloneBom.getDependencies(), componentIdToSpdxElement, warnings);
         if (Objects.isNull(cycloneBom.getProperties()) && !cycloneBom.getProperties().isEmpty()) {
-        	lossOfFidelity(spdxDoc, "properties", cycloneBom.getProperties(), warnings);
+        	retainFidelity(spdxDoc, "properties", cycloneBom.getProperties(), warnings);
         }
         List<Service> services = cycloneBom.getServices();
         if (Objects.nonNull(services) && !services.isEmpty()) {
-        	lossOfFidelity(spdxDoc, "services", cycloneBom.getServices(), warnings);
+        	retainFidelity(spdxDoc, "services", cycloneBom.getServices(), warnings);
         }
-
+        
         if (Objects.nonNull(cycloneBom.getMetadata()) && Objects.nonNull(cycloneBom.getMetadata().getComponent())) {
         	SpdxElement describes = componentIdToSpdxElement.get(cycloneBom.getMetadata().getComponent().getBomRef());
-        	if (Objects.isNull(describes)) {
-        		describes = componentToElement(spdxDoc, cycloneBom.getMetadata().getComponent(), warnings);
+        	if (Objects.isNull(describes) && Objects.nonNull(cycloneBom.getMetadata().getComponent())) {
+        		componentToElement(spdxDoc, cycloneBom.getMetadata().getComponent(), componentIdToSpdxElement, warnings);
+        		describes = componentIdToSpdxElement.get(cycloneBom.getMetadata().getComponent().getBomRef());
         		if (Objects.nonNull(describes)) {
         			componentIdToSpdxElement.put(cycloneBom.getMetadata().getComponent().getBomRef(), describes);
         			spdxDoc.getDocumentDescribes().add(describes);
         		}
         	}
         }
-        // Compositions must be copied after the components
-        copyCompositions(cycloneBom.getCompositions(), spdxDoc, componentIdToSpdxElement, warnings);
+        // Compositions and pedigrees must be copied after the components
+        copyCompositions(cycloneBom.getCompositions(), componentIdToSpdxElement, warnings);
         return documentUri;
     }
 
 	/**
-	 * @param compositions
-	 * @param spdxDoc
+	 * @param compositions compositions to be copied
 	 * @param componentIdElementMap map of CDX componentID to SPDX element
 	 * @param warnings
+	 * @throws InvalidSPDXAnalysisException 
 	 */
 	private static void copyCompositions(List<Composition> compositions,
-			SpdxDocument spdxDoc, Map<String, SpdxElement> componentIdElementMap, 
-			List<String> warnings) {
+			Map<String, SpdxElement> componentIdElementMap, 
+			List<String> warnings) throws InvalidSPDXAnalysisException {
 		if (Objects.isNull(compositions)) {
 			return;
 		}
 		for (Composition composition:compositions) {
-			
-			composition.getAggregate();
-			//TODO Implement
-			composition.getAssemblies();
-			//TODO Implement
-			composition.getDependencies();
-			//TODO Implement
+			Aggregate aggregate = composition.getAggregate();
+			if (Objects.isNull(aggregate)) {
+				warnings.add("Null aggregate for a composition - skipping");
+				continue;
+			}
+			List<BomReference> assemblies = composition.getAssemblies();
+			if (Objects.nonNull(assemblies)) {
+				addCommentToRelationships(assemblies, aggregate.toString(), 
+						RelationshipType.CONTAINS, componentIdElementMap, warnings);
+			}
+			List<BomReference> dependencies = composition.getDependencies();
+			if (Objects.nonNull(dependencies)) {
+				addCommentToRelationships(dependencies, aggregate.toString(), 
+						RelationshipType.DEPENDS_ON, componentIdElementMap, warnings);
+			}
 		}
 	}
+
+	/**
+	 * @param bomRefs List of BOM Refs for elements of the relationship type to be commented
+	 * @param comment comment to add
+	 * @param relationshipType Only apply to the relationship type - if null apply to all relationships
+	 * @param componentIdElementMap
+	 * @param warnings
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private static void addCommentToRelationships(
+			List<BomReference> bomRefs, String comment, @Nullable RelationshipType relationshipType,
+			Map<String, SpdxElement> componentIdElementMap,
+			List<String> warnings) throws InvalidSPDXAnalysisException {
+		for (BomReference assembly:bomRefs) {
+			String bomRef = assembly.getRef();
+			if (Objects.isNull(bomRef)) {
+				warnings.add("Null BOM Ref in compositions - skipping");
+				continue;
+			}
+			SpdxElement element = componentIdElementMap.get(bomRef);
+			if (Objects.isNull(element)) {
+				warnings.add("The component "+bomRef+ "referenced in compositions was not found in the CycloneDX SBOM");
+				continue;
+			}
+			for (Relationship relationship:element.getRelationships()) {
+				if (Objects.nonNull(relationshipType)) {
+					if (relationshipType.equals(relationship.getRelationshipType())) {
+						relationship.setComment(comment);
+					}
+				} else {
+					relationship.setComment(comment);
+				}
+			}
+		}
+	}
+
 
 	/**
 	 * @param dependencies dependencies to copy
@@ -372,34 +440,90 @@ public class CycloneToSpdx {
  			}
 		}
 	}
-
+	
 	/**
-     * Copy components to the SPDX document
-	 * @param components
-	 * @param spdxDoc
-	 * @param warnings
-     * @throws InvalidSPDXAnalysisException 
+	 * Add relationships representing the pedigree to the relationships for the element
+	 * @param element Element to add the relationship too
+	 * @param spdxDoc document containing the element
+	 * @param pedigree pegree to add
+	 * @param componentIdElementMap map of IDs to Elements
+	 * @param warnings list of warnings
+	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private static Map<String, SpdxElement> copyComponents(List<Component> components,
-			SpdxDocument spdxDoc, List<String> warnings) throws InvalidSPDXAnalysisException {
-		Map<String, SpdxElement> retval = new HashMap<>();
-		for (Component component:components) {
-			if (Objects.nonNull(component) && Objects.nonNull(component.getBomRef())) {
-				retval.put(component.getBomRef(), componentToElement(spdxDoc, component, warnings));
+	private static void addPedigreeRelationships(SpdxElement element, SpdxDocument spdxDoc, 
+			Pedigree pedigree, Map<String, SpdxElement> componentIdElementMap, 
+			List<String> warnings) throws InvalidSPDXAnalysisException {
+		Ancestors ancestors = pedigree.getAncestors();
+		if (Objects.nonNull(ancestors) && Objects.nonNull(ancestors.getComponents())) {
+			for (Component ancestor:ancestors.getComponents()) {
+				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, ancestor, componentIdElementMap, warnings))) {
+				SpdxElement ancestorElement = componentIdElementMap.get(ancestor.getBomRef());
+				Relationship relationship = element.createRelationship(ancestorElement, RelationshipType.ANCESTOR_OF, null);
+				element.addRelationship(relationship);
+				} else {
+					warnings.add("Ancestor relationship has scope other than required");
+				}
 			}
 		}
-		return retval;
+		Descendants descendants = pedigree.getDescendants();
+		if (Objects.nonNull(descendants) && Objects.nonNull(ancestors.getComponents())) {
+			for (Component descendant:descendants.getComponents()) {
+				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, descendant, componentIdElementMap, warnings))) {
+					SpdxElement descendantElement = componentIdElementMap.get(descendant.getBomRef());
+					Relationship relationship = element.createRelationship(descendantElement, 
+							RelationshipType.DESCENDANT_OF, null);
+					element.addRelationship(relationship);
+				} else {
+					warnings.add("Descendant relationship has scope other than required");
+				}
+			}
+		}
+		List<Commit> commits = pedigree.getCommits();
+		if (Objects.nonNull(commits)) {
+			retainFidelity(element, "pedigree.commits", commits, warnings);
+		}
+		List<Patch> patches =pedigree.getPatches();
+		if (Objects.nonNull(patches)) {
+			retainFidelity(element, "pedigree.patches", patches, warnings);
+		}
+		Variants variants = pedigree.getVariants();
+		if (Objects.nonNull(variants)) {
+			for (Component variant:variants.getComponents()) {
+				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, variant, componentIdElementMap, warnings))) {
+					SpdxElement variantElement = componentIdElementMap.get(variant.getBomRef());
+					Relationship relationship = element.createRelationship(variantElement, 
+							RelationshipType.VARIANT_OF, null);
+					element.addRelationship(relationship);
+				} else {
+					warnings.add("Variant relationship has scope other than required");
+				}
+			}
+		}
+		String notes = pedigree.getNotes();
+		if (Objects.nonNull(notes) && !notes.isBlank()) {
+			retainFidelity(element, "pedigree.notes", notes, warnings);
+		}
+		List<ExtensibleType> extensibleTypes = pedigree.getExtensibleTypes();
+		if (Objects.nonNull(extensibleTypes) && !extensibleTypes.isEmpty()) {
+			retainFidelity(element, "pedigree.extensibleTypes", extensibleTypes, warnings);
+		}
+		Map<String, Extension> extensions = pedigree.getExtensions();
+		if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+			retainFidelity(element, "pedigree.extensions", extensions, warnings);
+		}
 	}
 
 	/**
+	 * Convert a component to an element and add it to the componentIdElementMap
 	 * @param spdxDoc Document to add the element to
 	 * @param component CDX Component
+	 * @param componentIdElementMap map of component IDs to SpdxElement - updated in this methods
 	 * @param warnings list of warnings
-	 * @return SPDX element representing the CDX component or null if no equivalent type exists
+	 * @return the CycloneDX scope of the element
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private static @Nullable SpdxElement componentToElement(SpdxDocument spdxDoc,
-			Component component, List<String> warnings) throws InvalidSPDXAnalysisException {
+	private static Scope componentToElement(SpdxDocument spdxDoc,
+			Component component, Map<String, SpdxElement> componentIdElementMap, List<String> warnings) throws InvalidSPDXAnalysisException {
 		org.cyclonedx.model.Component.Type componentType = component.getType();
 		if (Objects.isNull(componentType)) {
 			warnings.add("Could not process component due to missing component type");
@@ -459,7 +583,7 @@ public class CycloneToSpdx {
 				for (Hash hash:hashes) {
 					ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
 					if (Objects.isNull(algorithm)) {
-						lossOfFidelity(element, "hash", hash, warnings);
+						retainFidelity(element, "hash", hash, warnings);
 					} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
 						if (element instanceof SpdxFile) {
 							((SpdxFile)element).addChecksum(element.createChecksum(algorithm, hash.getValue()));
@@ -469,7 +593,7 @@ public class CycloneToSpdx {
 					}
 				}
 			} else {
-				lossOfFidelity(element, "hashes", hashes, warnings);
+				retainFidelity(element, "hashes", hashes, warnings);
 			}
 		}
 		
@@ -479,18 +603,27 @@ public class CycloneToSpdx {
 				((SpdxPackage)element).setOriginator("Person: "+author);
 				warnings.add("Can not determine person or organization for Originator - using Person");
 			}
-			//TODO: Update spreadsheet - for a package, Author is the originator
-			lossOfFidelity(element, "author", author, warnings);
+			retainFidelity(element, "author", author, warnings);
 		}
 		
 		List<Component> subComponents = component.getComponents();
 		if (Objects.nonNull(subComponents)) {
 			for (Component subComponent:subComponents) {
-				SpdxElement subElement = componentToElement(spdxDoc, subComponent, warnings);
+				Scope scope = componentToElement(spdxDoc, subComponent, componentIdElementMap, warnings);
+				SpdxElement subElement = componentIdElementMap.get(subComponent.getBomRef());
 				if (Objects.nonNull(subElement)) {
-					Relationship subRelationship = spdxDoc.createRelationship(
-							subElement, RelationshipType.CONTAINS, null);
-					element.addRelationship(subRelationship);
+					if (Scope.REQUIRED.equals(scope)) {
+						Relationship subRelationship = spdxDoc.createRelationship(
+								subElement, RelationshipType.CONTAINS, null);
+						element.addRelationship(subRelationship);
+					} else if (Scope.OPTIONAL.equals(scope)) {
+						Relationship subRelationship = spdxDoc.createRelationship(
+								element, RelationshipType.OPTIONAL_COMPONENT_OF, null);
+						subElement.addRelationship(subRelationship);
+					} else {
+						warnings.add("Sub component is of excluded type: "+subComponent.getBomRef());
+					}
+					
 				}
 			}
 		}
@@ -499,34 +632,34 @@ public class CycloneToSpdx {
 			if (element instanceof SpdxPackage) {
 				((SpdxPackage)element).setDescription(description);
 			} else {
-				lossOfFidelity(element, "description", component.getDescription(), warnings);
+				retainFidelity(element, "description", component.getDescription(), warnings);
 			}
 		}
 		Evidence evidence = component.getEvidence();
 		if (Objects.nonNull(evidence)) {
-			lossOfFidelity(element, "evidence", evidence, warnings);
+			retainFidelity(element, "evidence", evidence, warnings);
 		}
 		List<ExtensibleType> extensibleTypes = component.getExtensibleTypes();
 		if (Objects.nonNull(extensibleTypes) && !extensibleTypes.isEmpty()) {
-			lossOfFidelity(element, "extensibleTypes", extensibleTypes, warnings);
+			retainFidelity(element, "extensibleTypes", extensibleTypes, warnings);
 		}
 		
 		Map<String, Extension> extensions = component.getExtensions();
 		if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
-			lossOfFidelity(element, "extensions", extensions, warnings);
+			retainFidelity(element, "extensions", extensions, warnings);
 		}
 		List<ExternalReference> externalReferences = component.getExternalReferences();
 		if (Objects.nonNull(externalReferences) && !externalReferences.isEmpty()) {
 			if (element instanceof SpdxPackage) {
 				copyExternalReferences(externalReferences, (SpdxPackage)element, warnings);
 			} else {
-				lossOfFidelity(element, "externalReferences", externalReferences, warnings);
+				retainFidelity(element, "externalReferences", externalReferences, warnings);
 			}
 		}
 		
 		String group = component.getGroup();
 		if (Objects.nonNull(group) && !group.isBlank()) {
-			lossOfFidelity(element, "group", group, warnings);
+			retainFidelity(element, "group", group, warnings);
 		}
 		
 		String mimeType = component.getMimeType();
@@ -536,11 +669,11 @@ public class CycloneToSpdx {
 				if (Objects.nonNull(fileType)) {
 					((SpdxFile)element).addFileType(fileType);
 				} else {
-					lossOfFidelity(element, "mimeType", mimeType, warnings);
+					retainFidelity(element, "mimeType", mimeType, warnings);
 				}
 				
 			} else {
-				lossOfFidelity(element, "mimeType", mimeType, warnings);
+				retainFidelity(element, "mimeType", mimeType, warnings);
 			}
 		}
 		if (component.getModified()) {
@@ -549,39 +682,78 @@ public class CycloneToSpdx {
 		
 		Pedigree pedigree = component.getPedigree();
 		if (Objects.nonNull(pedigree)) {
-			pedigree.getAncestors();
-			//TODO: Implement
-			pedigree.getDescendants();
-			//TODO: Implement
-			pedigree.getCommits();
-			//TODO: Implement
-			pedigree.getPatches();
-			//TODO: Implement
-			pedigree.getVariants();
-			//TODO: Implement
-			pedigree.getNotes();
-			//TODO: Implement
-			pedigree.getExtensibleTypes();
-			//TODO: Implement
-			pedigree.getExtensions();
-			//TODO: Implement
+			addPedigreeRelationships(element, spdxDoc, pedigree, componentIdElementMap, warnings);
 		}
-		component.getProperties();
-		//TODO: Implement
-		component.getPublisher();
-		//TODO: Implement
-		component.getPurl();
-		//TODO: Implement
-		component.getScope();
-		//TODO: Implement
-		component.getSupplier();
-		//TODO: Implement
-		component.getSwid();
-		//TODO: Implement
-		
-		component.getVersion();
-		//TODO: Implement
-		return element;
+		List<Property> properties = component.getProperties();
+		if (Objects.nonNull(properties) && !properties.isEmpty()) {
+			retainFidelity(element, "properites", properties, warnings);
+		}
+		String publisher = component.getPublisher();
+		if (Objects.nonNull(publisher) && !publisher.isBlank()) {
+			if (element instanceof SpdxPackage) {
+				((SpdxPackage)element).setOriginator(publisher);
+			} else {
+				retainFidelity(element, "publisher", publisher, warnings);
+			}
+		}
+		String purl = component.getPurl();
+		if (Objects.nonNull(purl) && !purl.isBlank()) {
+			if (element instanceof SpdxPackage) {
+				ExternalRef purlRef = element.createExternalRef(ReferenceCategory.PACKAGE_MANAGER, 
+						ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("purl"), 
+						purl, null);
+				((SpdxPackage)element).addExternalRef(purlRef);
+			} else {
+				retainFidelity(element, "purl", purl, warnings);
+			}
+		}
+		Scope scope = component.getScope();
+		if (Objects.isNull(scope)) {
+			scope = Scope.REQUIRED;
+		}
+		OrganizationalEntity supplier = component.getSupplier();
+		if (Objects.nonNull(supplier) && !supplier.getName().isBlank()) {
+			if (element instanceof SpdxPackage) {
+				StringBuilder sb = new StringBuilder("Organization: ");
+				sb.append(supplier.getName());
+				List<OrganizationalContact> contacts = supplier.getContacts();
+				if (Objects.nonNull(contacts) && !contacts.isEmpty()) {
+					sb.append(" (");
+					for (int i = 0; i < contacts.size(); i++) {
+						OrganizationalContact contact = contacts.get(i);
+						if (i > 0) {
+							sb.append(", ");
+						}
+						if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank()) {
+							sb.append(contact.getName());
+							if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+								sb.append(":");
+								sb.append(contact.getEmail());
+							}
+						} else if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+							sb.append(contact.getEmail());
+						}
+					}
+					sb.append(")");
+				}
+				((SpdxPackage)element).setSupplier(sb.toString());
+				warnings.add("Supplier is assumed to be an organization");
+			}
+		}
+		Swid swid = component.getSwid();
+		if (Objects.nonNull(swid)) {
+			retainFidelity(element, "swid", swid, warnings);
+		}
+		String version = component.getVersion();
+		if (Objects.nonNull(version) && !version.isBlank()) {
+			if (element instanceof SpdxPackage) {
+				((SpdxPackage)element).setVersionInfo(version);
+			} else {
+				retainFidelity(element, "version", version, warnings);
+			}
+		}
+		componentIdElementMap.put(component.getBomRef(), element);
+		return scope;
 	}
 
 	/**
@@ -871,10 +1043,10 @@ public class CycloneToSpdx {
             }
             creators.add(sb.toString());
             if (Objects.nonNull(manufacture.getContacts()) && manufacture.getContacts().size() > 0) {
-            	lossOfFidelity(spdxDoc, "metadata.manufacture.contacts", manufacture.getContacts(), warnings);
+            	retainFidelity(spdxDoc, "metadata.manufacture.contacts", manufacture.getContacts(), warnings);
             }
             if (Objects.nonNull(manufacture.getUrls()) && manufacture.getUrls().size() > 0) {
-            	lossOfFidelity(spdxDoc, "metadata.manufacture.urls", manufacture.getUrls(), warnings);
+            	retainFidelity(spdxDoc, "metadata.manufacture.urls", manufacture.getUrls(), warnings);
             }
         }
         OrganizationalEntity supplier = metadata.getSupplier();
@@ -888,10 +1060,10 @@ public class CycloneToSpdx {
             }
             creators.add(sb.toString());
             if (Objects.nonNull(supplier.getContacts()) && supplier.getContacts().size() > 0) {
-            	lossOfFidelity(spdxDoc, "metadata.supplier.contacts", supplier.getContacts(), warnings);  
+            	retainFidelity(spdxDoc, "metadata.supplier.contacts", supplier.getContacts(), warnings);  
             }
             if (Objects.nonNull(supplier.getUrls()) && supplier.getUrls().size() > 0) {
-            	lossOfFidelity(spdxDoc, "metadata.supplier.urls", supplier.getUrls(), warnings);  
+            	retainFidelity(spdxDoc, "metadata.supplier.urls", supplier.getUrls(), warnings);  
             }
         }
         creators.add("Tool: CycloneToSpdx-"+VERSION);
@@ -915,15 +1087,14 @@ public class CycloneToSpdx {
             dataLicense = ListedLicenses.getListedLicenses().getListedLicenseById(SpdxConstants.SPDX_DATA_LICENSE_ID);
         }
         spdxDoc.setDataLicense(dataLicense);
-        //TODO: What are these properties?
         List<Property> properties = metadata.getProperties();
         if (Objects.nonNull(properties) && properties.size() > 0) {
-            warnings.add("Loss of fidelity - not translating metadata properties");
+            retainFidelity(spdxDoc, "properties", properties, warnings);
         }
     }
 
     /**
-     * Documents a loss of fidelity by adding to the warnings creating an annotation with enough
+     * Prevent a loss of fidelity by adding to the warnings creating an annotation with enough
      * information to recreate the CycloneDX property and value.  The annotation format is:
      * <code>MISSING_CDX_PROPERTY:[propertyName]=[propertyValue] where propertyName is the name
      * of the CycloneDX property and the value is the JSON string representation of the value
@@ -931,7 +1102,7 @@ public class CycloneToSpdx {
 	 * @param warnings
      * @throws InvalidSPDXAnalysisException 
 	 */
-	protected static void lossOfFidelity(SpdxElement spdxElement,	String cycloneDxPropertyName,
+	protected static void retainFidelity(SpdxElement spdxElement,	String cycloneDxPropertyName,
 			Object cycloneDxPropertyValue, List<String> warnings) throws InvalidSPDXAnalysisException {
 		Objects.requireNonNull(spdxElement, "Null SPDX element for loss of fidelity");
 		Objects.requireNonNull(cycloneDxPropertyName, "Null CycloneDX property name for loss of fidelity");
@@ -946,6 +1117,7 @@ public class CycloneToSpdx {
 		StringBuilder message = new StringBuilder("SPDX does not support property or property value ");
 		message.append(cycloneDxPropertyName);
 		message.append(" for SPDX type "+spdxElement.getType());
+		message.append(".  An annotation was added to the element to capture this information.");
 		warnings.add(message.toString());
 	}
 
