@@ -445,19 +445,18 @@ public class CycloneToSpdx {
 	/**
 	 * Add relationships representing the pedigree to the relationships for the element
 	 * @param element Element to add the relationship too
-	 * @param spdxDoc document containing the element
 	 * @param pedigree pegree to add
 	 * @param componentIdElementMap map of IDs to Elements
 	 * @param warnings list of warnings
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private static void addPedigreeRelationships(SpdxElement element, SpdxDocument spdxDoc, 
+	private static void addPedigreeRelationships(SpdxElement element, 
 			Pedigree pedigree, Map<String, SpdxElement> componentIdElementMap, 
 			List<String> warnings) throws InvalidSPDXAnalysisException {
 		Ancestors ancestors = pedigree.getAncestors();
 		if (Objects.nonNull(ancestors) && Objects.nonNull(ancestors.getComponents())) {
 			for (Component ancestor:ancestors.getComponents()) {
-				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, ancestor, componentIdElementMap, warnings))) {
+				if (Scope.REQUIRED.equals(componentToElement(element, ancestor, componentIdElementMap, warnings))) {
 				SpdxElement ancestorElement = componentIdElementMap.get(ancestor.getBomRef());
 				Relationship relationship = element.createRelationship(ancestorElement, RelationshipType.ANCESTOR_OF, null);
 				element.addRelationship(relationship);
@@ -469,7 +468,7 @@ public class CycloneToSpdx {
 		Descendants descendants = pedigree.getDescendants();
 		if (Objects.nonNull(descendants) && Objects.nonNull(ancestors.getComponents())) {
 			for (Component descendant:descendants.getComponents()) {
-				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, descendant, componentIdElementMap, warnings))) {
+				if (Scope.REQUIRED.equals(componentToElement(element, descendant, componentIdElementMap, warnings))) {
 					SpdxElement descendantElement = componentIdElementMap.get(descendant.getBomRef());
 					Relationship relationship = element.createRelationship(descendantElement, 
 							RelationshipType.DESCENDANT_OF, null);
@@ -490,7 +489,7 @@ public class CycloneToSpdx {
 		Variants variants = pedigree.getVariants();
 		if (Objects.nonNull(variants)) {
 			for (Component variant:variants.getComponents()) {
-				if (Scope.REQUIRED.equals(componentToElement(spdxDoc, variant, componentIdElementMap, warnings))) {
+				if (Scope.REQUIRED.equals(componentToElement(element, variant, componentIdElementMap, warnings))) {
 					SpdxElement variantElement = componentIdElementMap.get(variant.getBomRef());
 					Relationship relationship = element.createRelationship(variantElement, 
 							RelationshipType.VARIANT_OF, null);
@@ -523,7 +522,7 @@ public class CycloneToSpdx {
 	 * @return the CycloneDX scope of the element
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private static Scope componentToElement(SpdxDocument spdxDoc,
+	private static Scope componentToElement(SpdxElement spdxDoc,
 			Component component, Map<String, SpdxElement> componentIdElementMap, List<String> warnings) throws InvalidSPDXAnalysisException {
 		org.cyclonedx.model.Component.Type componentType = component.getType();
 		if (Objects.isNull(componentType)) {
@@ -542,7 +541,6 @@ public class CycloneToSpdx {
 		if (seenLicenses.isEmpty()) {
 			seenLicenses.add(new SpdxNoAssertionLicense());
 		}
-		
 		List<Hash> hashes = component.getHashes();
 		Checksum sha1 = null;
 		if (Objects.nonNull(hashes)) {
@@ -572,95 +570,6 @@ public class CycloneToSpdx {
 						.build();
 			 addPackageProperties((SpdxPackage)element, component, componentIdElementMap, warnings);
 		}
-		addElementProperties(element, component, componentIdElementMap, warnings);
-		
-		switch (componentType) {
-			case FILE: {
-				if (containsPackageOnlyProperties(component)) {
-					element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
-							.setPackageFileName(name)
-							.setPackageVerificationCode(spdxDoc.createPackageVerificationCode(sha1.getValue(), new ArrayList<String>()))
-							.build();
-				} else {
-					element = spdxDoc.createSpdxFile(elementId, name, 
-							new SpdxNoAssertionLicense(), seenLicenses, copyright, sha1)
-							.build();
-				}
-				break;
-			}
-			case APPLICATION:
-			case CONTAINER:
-			case DEVICE:
-			case FIRMWARE:
-			case FRAMEWORK:
-			case LIBRARY:
-			case OPERATING_SYSTEM:
-			default: element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
-									.build();
-		}
-		
-		if (element instanceof SpdxPackage) {
-			// Note that fidelity is retained if it is of type file
-			retainFidelity(element, "componentType", componentType, warnings);
-		}
-		
-		if (Objects.nonNull(hashes) && !hashes.isEmpty()) {
-			if (element instanceof SpdxFile || element instanceof SpdxPackage) {
-				for (Hash hash:hashes) {
-					ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
-					if (Objects.isNull(algorithm)) {
-						retainFidelity(element, "hash", hash, warnings);
-					} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
-						if (element instanceof SpdxFile) {
-							((SpdxFile)element).addChecksum(element.createChecksum(algorithm, hash.getValue()));
-						} else if (element instanceof SpdxPackage) {
-							((SpdxPackage)element).addChecksum(element.createChecksum(algorithm, hash.getValue()));
-						}
-					}
-				}
-			} else {
-				retainFidelity(element, "hashes", hashes, warnings);
-			}
-		}
-		
-		String author = component.getAuthor();
-		if (Objects.nonNull(author) && !author.isBlank()) {
-			if (element instanceof SpdxPackage) {
-				((SpdxPackage)element).setOriginator("Person: "+author);
-				warnings.add("Can not determine person or organization for Originator - using Person");
-			}
-			retainFidelity(element, "author", author, warnings);
-		}
-		
-		List<Component> subComponents = component.getComponents();
-		if (Objects.nonNull(subComponents)) {
-			for (Component subComponent:subComponents) {
-				Scope scope = componentToElement(spdxDoc, subComponent, componentIdElementMap, warnings);
-				SpdxElement subElement = componentIdElementMap.get(subComponent.getBomRef());
-				if (Objects.nonNull(subElement)) {
-					if (Scope.REQUIRED.equals(scope)) {
-						Relationship subRelationship = spdxDoc.createRelationship(
-								subElement, RelationshipType.CONTAINS, null);
-						element.addRelationship(subRelationship);
-					} else if (Scope.OPTIONAL.equals(scope)) {
-						Relationship subRelationship = spdxDoc.createRelationship(
-								element, RelationshipType.OPTIONAL_COMPONENT_OF, null);
-						subElement.addRelationship(subRelationship);
-					} else {
-						warnings.add("Sub component is of excluded type: "+subComponent.getBomRef());
-					}
-					
-				}
-			}
-		}
-		String description = component.getDescription();
-		if (Objects.nonNull(description)) {
-			if (element instanceof SpdxPackage) {
-				((SpdxPackage)element).setDescription(description);
-			} else {
-				retainFidelity(element, "description", component.getDescription(), warnings);
-			}
-		}
 		Evidence evidence = component.getEvidence();
 		if (Objects.nonNull(evidence)) {
 			retainFidelity(element, "evidence", evidence, warnings);
@@ -668,115 +577,33 @@ public class CycloneToSpdx {
 		List<ExtensibleType> extensibleTypes = component.getExtensibleTypes();
 		if (Objects.nonNull(extensibleTypes) && !extensibleTypes.isEmpty()) {
 			retainFidelity(element, "extensibleTypes", extensibleTypes, warnings);
-		}
-		
+		}		
 		Map<String, Extension> extensions = component.getExtensions();
 		if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
 			retainFidelity(element, "extensions", extensions, warnings);
 		}
-		List<ExternalReference> externalReferences = component.getExternalReferences();
-		if (Objects.nonNull(externalReferences) && !externalReferences.isEmpty()) {
-			if (element instanceof SpdxPackage) {
-				copyExternalReferences(externalReferences, (SpdxPackage)element, warnings);
-			} else {
-				retainFidelity(element, "externalReferences", externalReferences, warnings);
-			}
-		}
-		
 		String group = component.getGroup();
 		if (Objects.nonNull(group) && !group.isBlank()) {
 			retainFidelity(element, "group", group, warnings);
 		}
-		
-		String mimeType = component.getMimeType();
-		if (Objects.nonNull(mimeType)) {
-			if (element instanceof SpdxFile) {
-				FileType fileType = mimeToFileType(mimeType);
-				if (Objects.nonNull(fileType)) {
-					((SpdxFile)element).addFileType(fileType);
-				} else {
-					retainFidelity(element, "mimeType", mimeType, warnings);
-				}
-				
-			} else {
-				retainFidelity(element, "mimeType", mimeType, warnings);
-			}
-		}
 		if (component.getModified()) {
 			warnings.add("Component "+name+" was flagged as modified.  This field is deprecated in CycloneDX and will not be represented in SPDX");
 		}
-		
 		Pedigree pedigree = component.getPedigree();
 		if (Objects.nonNull(pedigree)) {
-			addPedigreeRelationships(element, spdxDoc, pedigree, componentIdElementMap, warnings);
+			addPedigreeRelationships(element, pedigree, componentIdElementMap, warnings);
 		}
 		List<Property> properties = component.getProperties();
 		if (Objects.nonNull(properties) && !properties.isEmpty()) {
 			retainFidelity(element, "properites", properties, warnings);
 		}
-		String publisher = component.getPublisher();
-		if (Objects.nonNull(publisher) && !publisher.isBlank()) {
-			if (element instanceof SpdxPackage) {
-				((SpdxPackage)element).setOriginator(publisher);
-			} else {
-				retainFidelity(element, "publisher", publisher, warnings);
-			}
-		}
-		String purl = component.getPurl();
-		if (Objects.nonNull(purl) && !purl.isBlank()) {
-			if (element instanceof SpdxPackage) {
-				ExternalRef purlRef = element.createExternalRef(ReferenceCategory.PACKAGE_MANAGER, 
-						ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("purl"), 
-						purl, null);
-				((SpdxPackage)element).addExternalRef(purlRef);
-			} else {
-				retainFidelity(element, "purl", purl, warnings);
-			}
-		}
 		Scope scope = component.getScope();
 		if (Objects.isNull(scope)) {
 			scope = Scope.REQUIRED;
 		}
-		OrganizationalEntity supplier = component.getSupplier();
-		if (Objects.nonNull(supplier) && !supplier.getName().isBlank()) {
-			if (element instanceof SpdxPackage) {
-				StringBuilder sb = new StringBuilder("Organization: ");
-				sb.append(supplier.getName());
-				List<OrganizationalContact> contacts = supplier.getContacts();
-				if (Objects.nonNull(contacts) && !contacts.isEmpty()) {
-					sb.append(" (");
-					for (int i = 0; i < contacts.size(); i++) {
-						OrganizationalContact contact = contacts.get(i);
-						if (i > 0) {
-							sb.append(", ");
-						}
-						if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank()) {
-							sb.append(contact.getName());
-							if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
-								sb.append(":");
-								sb.append(contact.getEmail());
-							}
-						} else if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
-							sb.append(contact.getEmail());
-						}
-					}
-					sb.append(")");
-				}
-				((SpdxPackage)element).setSupplier(sb.toString());
-				warnings.add("Supplier is assumed to be an organization");
-			}
-		}
 		Swid swid = component.getSwid();
 		if (Objects.nonNull(swid)) {
 			retainFidelity(element, "swid", swid, warnings);
-		}
-		String version = component.getVersion();
-		if (Objects.nonNull(version) && !version.isBlank()) {
-			if (element instanceof SpdxPackage) {
-				((SpdxPackage)element).setVersionInfo(version);
-			} else {
-				retainFidelity(element, "version", version, warnings);
-			}
 		}
 		componentIdElementMap.put(component.getBomRef(), element);
 		return scope;
@@ -794,14 +621,104 @@ public class CycloneToSpdx {
 	private static void addPackageProperties(SpdxPackage spdxPackage,
 			Component component, Map<String, SpdxElement> componentIdElementMap,
 			List<String> warnings) throws InvalidSPDXAnalysisException {
-		if (Objects.nonNull(component.getType()) && Type.FILE.equals(component.getType())) {
-			// Add the file as the package file name
-			spdxPackage.setPackageFileName(spdxPackage.getName().get());
-			// Add the package verification code for the single file package
-			spdxPackage.setPackageVerificationCode(spdxPackage.createPackageVerificationCode(spdxPackage.getSha1(), new ArrayList<String>()));
+		if (Objects.nonNull(component.getType())) {
+			retainFidelity(spdxPackage, "componentType", component.getType(), warnings);
+			if (Type.FILE.equals(component.getType())) {
+				// Add the file as the package file name
+				spdxPackage.setPackageFileName(spdxPackage.getName().get());
+				// Add the package verification code for the single file package
+				spdxPackage.setPackageVerificationCode(spdxPackage.createPackageVerificationCode(spdxPackage.getSha1(), new ArrayList<String>()));
+			}
 		}
-		// TODO Auto-generated method stub
-		
+		List<Hash> hashes = component.getHashes();
+		for (Hash hash:hashes) {
+			ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
+			if (Objects.isNull(algorithm)) {
+				retainFidelity(spdxPackage, "hash", hash, warnings);
+			} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
+				spdxPackage.addChecksum(spdxPackage.createChecksum(algorithm, hash.getValue()));
+			}
+		}
+		String author = component.getAuthor();
+		if (Objects.nonNull(author) && !author.isBlank()) {
+			spdxPackage.setOriginator("Person: "+author);
+			warnings.add("Can not determine person or organization for Originator - using Person");
+		}
+		List<Component> subComponents = component.getComponents();
+		if (Objects.nonNull(subComponents)) {
+			for (Component subComponent:subComponents) {
+				Scope scope = componentToElement(spdxPackage, subComponent, componentIdElementMap, warnings);
+				SpdxElement subElement = componentIdElementMap.get(subComponent.getBomRef());
+				if (Objects.nonNull(subElement)) {
+					if (Scope.REQUIRED.equals(scope)) {
+						Relationship subRelationship = spdxPackage.createRelationship(
+								subElement, RelationshipType.CONTAINS, null);
+						spdxPackage.addRelationship(subRelationship);
+					} else if (Scope.OPTIONAL.equals(scope)) {
+						Relationship subRelationship = spdxPackage.createRelationship(
+								spdxPackage, RelationshipType.OPTIONAL_COMPONENT_OF, null);
+						subElement.addRelationship(subRelationship);
+					} else {
+						warnings.add("Sub component is of excluded type: "+subComponent.getBomRef());
+					}
+					
+				}
+			}
+		}
+		String description = component.getDescription();
+		if (Objects.nonNull(description)) {
+			spdxPackage.setDescription(description);
+		}
+		List<ExternalReference> externalReferences = component.getExternalReferences();
+		if (Objects.nonNull(externalReferences) && !externalReferences.isEmpty()) {
+			copyExternalReferences(externalReferences, spdxPackage, warnings);
+		}
+		String mimeType = component.getMimeType();
+		if (Objects.nonNull(mimeType)) {
+			retainFidelity(spdxPackage, "mimeType", mimeType, warnings);
+		}
+		String publisher = component.getPublisher();
+		if (Objects.nonNull(publisher) && !publisher.isBlank()) {
+			spdxPackage.setOriginator(publisher);
+		}
+		OrganizationalEntity supplier = component.getSupplier();
+		if (Objects.nonNull(supplier) && !supplier.getName().isBlank()) {
+			StringBuilder sb = new StringBuilder("Organization: ");
+			sb.append(supplier.getName());
+			List<OrganizationalContact> contacts = supplier.getContacts();
+			if (Objects.nonNull(contacts) && !contacts.isEmpty()) {
+				sb.append(" (");
+				for (int i = 0; i < contacts.size(); i++) {
+					OrganizationalContact contact = contacts.get(i);
+					if (i > 0) {
+						sb.append(", ");
+					}
+					if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank()) {
+						sb.append(contact.getName());
+						if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+							sb.append(":");
+							sb.append(contact.getEmail());
+						}
+					} else if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+						sb.append(contact.getEmail());
+					}
+				}
+				sb.append(")");
+			}
+			spdxPackage.setSupplier(sb.toString());
+			warnings.add("Supplier is assumed to be an organization");
+		}
+		String version = component.getVersion();
+		if (Objects.nonNull(version) && !version.isBlank()) {
+			spdxPackage.setVersionInfo(version);
+		}
+		String purl = component.getPurl();
+		if (Objects.nonNull(purl) && !purl.isBlank()) {
+			ExternalRef purlRef = spdxPackage.createExternalRef(ReferenceCategory.PACKAGE_MANAGER, 
+					ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("purl"), 
+					purl, null);
+			spdxPackage.addExternalRef(purlRef);
+		}
 	}
 	
 	/**
@@ -816,25 +733,24 @@ public class CycloneToSpdx {
 	private static void addFileProperties(SpdxFile spdxFile,
 			Component component, Map<String, SpdxElement> componentIdElementMap,
 			List<String> warnings) throws InvalidSPDXAnalysisException {
-		
-		// TODO Auto-generated method stub
-		
-	}
-
-	/**
-	 * Add component properties common to all SPDX element
-	 * @param element element to add the parameters to
-	 * @param component to add the parameters to
-	 * @param componentIdElementMap map of component IDs to SpdxElement - updated in this methods
-	 * @param warnings list of warnings
-	 * @throws InvalidSPDXAnalysisException 
-	 */
-	private static void addElementProperties(SpdxElement element,
-			Component component, Map<String, SpdxElement> componentIdElementMap,
-			List<String> warnings) throws InvalidSPDXAnalysisException {
-		
-		// TODO Auto-generated method stub
-		
+		List<Hash> hashes = component.getHashes();
+		for (Hash hash:hashes) {
+			ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
+			if (Objects.isNull(algorithm)) {
+				retainFidelity(spdxFile, "hash", hash, warnings);
+			} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
+				spdxFile.addChecksum(spdxFile.createChecksum(algorithm, hash.getValue()));
+			}
+		}
+		String mimeType = component.getMimeType();
+		if (Objects.nonNull(mimeType)) {
+			FileType fileType = mimeToFileType(mimeType);
+			if (Objects.nonNull(fileType)) {
+				spdxFile.addFileType(fileType);
+			} else {
+				retainFidelity(spdxFile, "mimeType", mimeType, warnings);
+			}
+		}
 	}
 	
 	/**
@@ -848,6 +764,8 @@ public class CycloneToSpdx {
 				(Objects.nonNull(component.getPurl()) && !component.getPurl().isBlank()) &&
 				(Objects.nonNull(component.getSupplier()) && !component.getSupplier().getName().isBlank()) &&
 				(Objects.nonNull(component.getVersion()) && !component.getVersion().isBlank()) &&
+				(Objects.nonNull(component.getPurl()) && !component.getPurl().isBlank()) &&
+				(Objects.nonNull(component.getComponents()) && !component.getComponents().isEmpty()) &&
 				(Objects.nonNull(component.getExternalReferences()) && !component.getExternalReferences().isEmpty()));
 	}
 
@@ -916,11 +834,11 @@ public class CycloneToSpdx {
 
 	/**
 	 * @param licenseChoice license choice to convert
-	 * @param spdxDoc document containing the licenses
+	 * @param parentElement SPDX Element containing the license
 	 * @param warnings
-	 * @return licenses that are equivalent to the CycloneDX license inf
+	 * @return licenses that are equivalent to the CycloneDX license info
 	 */
-	private static List<AnyLicenseInfo> convertCycloneLicenseInfo(SpdxDocument spdxDoc,
+	private static List<AnyLicenseInfo> convertCycloneLicenseInfo(SpdxElement parentElement,
 			LicenseChoice licenseChoice, List<String> warnings) {
 		List<AnyLicenseInfo> retval = new ArrayList<>();
 		if (Objects.nonNull(licenseChoice)) {	
@@ -928,7 +846,7 @@ public class CycloneToSpdx {
 			if (Objects.nonNull(expression) && !expression.isBlank()) {
 				try {
 					retval.add(LicenseInfoFactory.parseSPDXLicenseString(expression, 
-							spdxDoc.getModelStore(), spdxDoc.getDocumentUri(), spdxDoc.getCopyManager()));
+							parentElement.getModelStore(), parentElement.getDocumentUri(), parentElement.getCopyManager()));
 				} catch(InvalidLicenseStringException ex) {
 					warnings.add("Invalid license expression '"+expression+"'");
 				}
@@ -938,7 +856,7 @@ public class CycloneToSpdx {
 				for (License lic:licenses) {
 					try {
 						retval.add(LicenseInfoFactory.parseSPDXLicenseString(lic.getId(), 
-								spdxDoc.getModelStore(), spdxDoc.getDocumentUri(), spdxDoc.getCopyManager()));
+								parentElement.getModelStore(), parentElement.getDocumentUri(), parentElement.getCopyManager()));
 					} catch(InvalidLicenseStringException ex) {
 						warnings.add("Invalid license id '"+lic.getId()+"'");
 					}
@@ -949,20 +867,20 @@ public class CycloneToSpdx {
 	}
 
 	/**
-	 * @param spdxDoc
+	 * @param parentElement Parent element containing the licenses
 	 * @param licenses
 	 * @return a conjunctive license set of the licenses if there is more than one, otherwise the single license
 	 * @throws InvalidSPDXAnalysisException 
 	 */
-	private static AnyLicenseInfo listToLicenseSet(SpdxDocument spdxDoc,
+	private static AnyLicenseInfo listToLicenseSet(SpdxElement parentElement,
 			List<AnyLicenseInfo> licenses) throws InvalidSPDXAnalysisException {
 		if (licenses.size() == 1) {
 			return licenses.get(0);
 		} else {
-			ConjunctiveLicenseSet retval = new ConjunctiveLicenseSet(spdxDoc.getModelStore(), 
-					spdxDoc.getDocumentUri(), 
-					spdxDoc.getModelStore().getNextId(IdType.Anonymous, spdxDoc.getDocumentUri()),
-					spdxDoc.getCopyManager(), true);
+			ConjunctiveLicenseSet retval = new ConjunctiveLicenseSet(parentElement.getModelStore(), 
+					parentElement.getDocumentUri(), 
+					parentElement.getModelStore().getNextId(IdType.Anonymous, parentElement.getDocumentUri()),
+					parentElement.getCopyManager(), true);
 			retval.getMembers().addAll(licenses);
 			return retval;
 		}
