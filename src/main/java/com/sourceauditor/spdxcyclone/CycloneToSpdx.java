@@ -30,6 +30,7 @@ import org.cyclonedx.model.BomReference;
 import org.cyclonedx.model.Commit;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Component.Scope;
+import org.cyclonedx.model.Component.Type;
 import org.cyclonedx.model.Composition;
 import org.cyclonedx.model.Composition.Aggregate;
 import org.cyclonedx.model.Dependency;
@@ -560,11 +561,31 @@ public class CycloneToSpdx {
 		if (Objects.isNull(copyright)) {
 			copyright = SpdxConstants.NOASSERTION_VALUE;
 		}
+		
+		if (Type.FILE.equals(componentType) && !containsPackageOnlyProperties(component)) {
+			element = spdxDoc.createSpdxFile(elementId, name, 
+					new SpdxNoAssertionLicense(), seenLicenses, copyright, sha1)
+					.build();
+			addFileProperties((SpdxFile)element, component, componentIdElementMap, warnings);
+		} else {
+			 element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
+						.build();
+			 addPackageProperties((SpdxPackage)element, component, componentIdElementMap, warnings);
+		}
+		addElementProperties(element, component, componentIdElementMap, warnings);
+		
 		switch (componentType) {
 			case FILE: {
-				element = spdxDoc.createSpdxFile(elementId, name, 
-						new SpdxNoAssertionLicense(), seenLicenses, copyright, sha1)
-						.build();
+				if (containsPackageOnlyProperties(component)) {
+					element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
+							.setPackageFileName(name)
+							.setPackageVerificationCode(spdxDoc.createPackageVerificationCode(sha1.getValue(), new ArrayList<String>()))
+							.build();
+				} else {
+					element = spdxDoc.createSpdxFile(elementId, name, 
+							new SpdxNoAssertionLicense(), seenLicenses, copyright, sha1)
+							.build();
+				}
 				break;
 			}
 			case APPLICATION:
@@ -576,6 +597,11 @@ public class CycloneToSpdx {
 			case OPERATING_SYSTEM:
 			default: element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
 									.build();
+		}
+		
+		if (element instanceof SpdxPackage) {
+			// Note that fidelity is retained if it is of type file
+			retainFidelity(element, "componentType", componentType, warnings);
 		}
 		
 		if (Objects.nonNull(hashes) && !hashes.isEmpty()) {
@@ -598,7 +624,7 @@ public class CycloneToSpdx {
 		}
 		
 		String author = component.getAuthor();
-		if (Objects.nonNull(author)) {
+		if (Objects.nonNull(author) && !author.isBlank()) {
 			if (element instanceof SpdxPackage) {
 				((SpdxPackage)element).setOriginator("Person: "+author);
 				warnings.add("Can not determine person or organization for Originator - using Person");
@@ -755,6 +781,76 @@ public class CycloneToSpdx {
 		componentIdElementMap.put(component.getBomRef(), element);
 		return scope;
 	}
+
+	/**
+	 * Add component properties unique to the package and create annotations for any component properties the 
+	 * package does not accept
+	 * @param spdxPackage package to add the parameters to
+	 * @param component to add the parameters to
+	 * @param componentIdElementMap map of component IDs to SpdxElement - updated in this methods
+	 * @param warnings list of warnings
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private static void addPackageProperties(SpdxPackage spdxPackage,
+			Component component, Map<String, SpdxElement> componentIdElementMap,
+			List<String> warnings) throws InvalidSPDXAnalysisException {
+		if (Objects.nonNull(component.getType()) && Type.FILE.equals(component.getType())) {
+			// Add the file as the package file name
+			spdxPackage.setPackageFileName(spdxPackage.getName().get());
+			// Add the package verification code for the single file package
+			spdxPackage.setPackageVerificationCode(spdxPackage.createPackageVerificationCode(spdxPackage.getSha1(), new ArrayList<String>()));
+		}
+		// TODO Auto-generated method stub
+		
+	}
+	
+	/**
+	 * Add component properties unique to the file and create annotations for any component properties the 
+	 * file does not accept
+	 * @param spdxFile spdxFile to add the parameters to
+	 * @param component to add the parameters to
+	 * @param componentIdElementMap map of component IDs to SpdxElement - updated in this methods
+	 * @param warnings list of warnings
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private static void addFileProperties(SpdxFile spdxFile,
+			Component component, Map<String, SpdxElement> componentIdElementMap,
+			List<String> warnings) throws InvalidSPDXAnalysisException {
+		
+		// TODO Auto-generated method stub
+		
+	}
+
+	/**
+	 * Add component properties common to all SPDX element
+	 * @param element element to add the parameters to
+	 * @param component to add the parameters to
+	 * @param componentIdElementMap map of component IDs to SpdxElement - updated in this methods
+	 * @param warnings list of warnings
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private static void addElementProperties(SpdxElement element,
+			Component component, Map<String, SpdxElement> componentIdElementMap,
+			List<String> warnings) throws InvalidSPDXAnalysisException {
+		
+		// TODO Auto-generated method stub
+		
+	}
+	
+	/**
+	 * @param component
+	 * @return true if the component contains properties only applicable to a package
+	 */
+	private static boolean containsPackageOnlyProperties(Component component) {
+		return ((Objects.nonNull(component.getAuthor()) && !component.getAuthor().isBlank()) &&
+				(Objects.nonNull(component.getDescription()) && !component.getDescription().isBlank()) &&
+				(Objects.nonNull(component.getPublisher()) && !component.getPublisher().isBlank()) &&
+				(Objects.nonNull(component.getPurl()) && !component.getPurl().isBlank()) &&
+				(Objects.nonNull(component.getSupplier()) && !component.getSupplier().getName().isBlank()) &&
+				(Objects.nonNull(component.getVersion()) && !component.getVersion().isBlank()) &&
+				(Objects.nonNull(component.getExternalReferences()) && !component.getExternalReferences().isEmpty()));
+	}
+
 
 	/**
 	 * Convert a Mime type to an SPDX File Type

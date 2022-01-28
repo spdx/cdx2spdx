@@ -1,0 +1,3 @@
+[submodule "src/test/resources/specification"]
+	path = src/test/resources/specification
+	url = git@github.com:CycloneDX/specification.git
