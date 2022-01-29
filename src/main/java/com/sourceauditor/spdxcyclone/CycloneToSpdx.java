@@ -11,6 +11,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -90,6 +91,7 @@ import org.spdx.storage.simple.InMemSpdxStore;
 import org.spdx.tagvaluestore.TagValueStore;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * Converts between CycloneDX and SPDX
@@ -113,7 +115,7 @@ public class CycloneToSpdx {
     static final String REFERENCE_SITE_BOWER = "http://bower.io/";
     static final SimpleDateFormat SPDX_DATE_FORMAT = new SimpleDateFormat(SpdxConstants.SPDX_DATE_FORMAT);
 
-	private static final String INVALID_REF_REGEX = "[^0-9a-zA-Z\\.\\-\\+]";
+	private static final String INVALID_REF_REGEX = "[^0-9a-zA-Z\\.\\-\\+_]";
 
 	private static final String NULL_SHA1_VALUE = "0000000000000000000000000000000000000000";
     
@@ -170,7 +172,9 @@ public class CycloneToSpdx {
         }
     }
     
-    static final Gson GSON = new Gson();
+    static final Gson GSON = new GsonBuilder()
+            .setDateFormat(SpdxConstants.SPDX_DATE_FORMAT)	//TODO: Check to see of CycloneDX has the same format
+            .create();
 
 	private static final String MISSING_CDX_PROPERTY_STR = "MISSING_CDX_PROPERTY:";
     
@@ -207,68 +211,81 @@ public class CycloneToSpdx {
             usage();
             System.exit(ERROR_STATUS);
         }
-        File outFile = new File(args[1]);
-        if (outFile.exists()) {
-            System.err.println("File "+args[1]+" already exists.");
-            System.exit(ERROR_STATUS);
-        }
-        ISerializableModelStore modelStore = null;
-        try {
-            modelStore = fileTypeToStore(fileToFileType(outFile));
-        } catch (InvalidSPDXAnalysisException e) {
-            System.err.println("Unable to create SPDX model store: "+e.getMessage());
-            usage();
-            System.exit(ERROR_STATUS);
-        } catch (com.sourceauditor.spdxcyclone.InvalidFileNameException e) {
-            System.err.println(e.getMessage());
-            usage();
-            System.exit(ERROR_STATUS);
-        }
-        File inFile = new File(args[0]);
-        if (!inFile.exists()) {
-            System.err.println("File "+args[0]+" does not exist.");
-            System.exit(ERROR_STATUS);
-        }
-        Bom cycloneBom = null;
-        try {
-            Parser cycloneParser = BomParserFactory.createParser(inFile);
-            cycloneBom = cycloneParser.parse(inFile);
-        } catch (ParseException e) {
-            System.err.println("Error creating Cyclone parser:"+e.getMessage());
-            System.exit(ERROR_STATUS);
-        }
+
         List<String> warnings = new ArrayList<>();
-        String documentUri = null;
-		try {
-			documentUri = copyCycloneToSpdx(cycloneBom, modelStore, warnings);
-		} catch (InvalidSPDXAnalysisException e) {
-			System.err.println("SPDX Analysis exception occured while copying to SPDX model: "+e.getMessage());
-			System.exit(ERROR_STATUS);
+        try {
+			cycloneDxToSpdx(args[0], args[1], warnings);
 		} catch (CycloneConversionException e) {
-			System.err.println("Conversion error occured while copying to SPDX model: "+e.getMessage());
+			System.out.println(e.getMessage());
 			System.exit(ERROR_STATUS);
 		}
-        try (FileOutputStream output = new FileOutputStream(outFile)) {
-            modelStore.serialize(documentUri, output);
-        } catch (FileNotFoundException e) {
-            System.err.println("Output file "+args[1]+" not found.");
-            System.exit(ERROR_STATUS);
-        } catch (IOException e) {
-            System.err.println("I/O error writing output file:"+e.getMessage());
-            System.exit(ERROR_STATUS);
-        } catch (InvalidSPDXAnalysisException e) {
-            System.err.println("SPDX error creating output file:"+e.getMessage());
-            System.exit(ERROR_STATUS);
-        }
         if (warnings.size() > 0) {
             System.out.println("Completed with the following warnings:");
             for (String warning:warnings) {
                 System.out.println("\t"+warning);
             }
         }
+        System.exit(0);
     }
     
     /**
+	 * @param cycloneDxFilePath
+	 * @param spdxFilePath
+	 * @param warnings
+     * @throws CycloneConversionException 
+	 */
+	public static void cycloneDxToSpdx(String cycloneDxFilePath, String spdxFilePath, List<String> warnings) throws CycloneConversionException {
+        File outFile = new File(spdxFilePath);
+        if (outFile.exists()) {
+        	throw new CycloneConversionException("File "+spdxFilePath+" already exists.");
+        }
+        try {
+			if (!outFile.createNewFile()) {
+				throw new CycloneConversionException("Could not create output file "+spdxFilePath);
+			}
+		} catch (IOException e) {
+			throw new CycloneConversionException("I/O Error creating output file "+spdxFilePath, e);
+		}
+        ISerializableModelStore modelStore = null;
+        try {
+            modelStore = fileTypeToStore(fileToFileType(outFile));
+        } catch (InvalidSPDXAnalysisException e) {
+        	throw new CycloneConversionException("Unable to create SPDX model store: "+e.getMessage(), e);
+        } catch (com.sourceauditor.spdxcyclone.InvalidFileNameException e) {
+        	throw new CycloneConversionException("Cyclone DX Parsing Exception: "+e.getMessage(), e);
+        }
+        File inFile = new File(cycloneDxFilePath);
+        if (!inFile.exists()) {
+        	throw new CycloneConversionException("File "+cycloneDxFilePath+" does not exist.");
+        }
+        Bom cycloneBom = null;
+        try {
+            Parser cycloneParser = BomParserFactory.createParser(inFile);
+            cycloneBom = cycloneParser.parse(inFile);
+        } catch (ParseException e) {
+        	throw new CycloneConversionException("Error creating Cyclone parser:"+e.getMessage());
+        }
+        String documentUri = null;
+		try {
+			documentUri = copyCycloneToSpdx(cycloneBom, modelStore, warnings);
+		} catch (InvalidSPDXAnalysisException e) {
+			throw new CycloneConversionException("SPDX Analysis exception occured while copying to SPDX model: "+e.getMessage());
+		} catch (CycloneConversionException e) {
+			throw new CycloneConversionException("Conversion error occured while copying to SPDX model: "+e.getMessage());
+		}
+        try (FileOutputStream output = new FileOutputStream(outFile)) {
+            modelStore.serialize(documentUri, output);
+        } catch (FileNotFoundException e) {
+        	throw new CycloneConversionException("Output file "+spdxFilePath+" not found.", e);
+        } catch (IOException e) {
+        	throw new CycloneConversionException("I/O error writing output file:"+e.getMessage(), e);
+        } catch (InvalidSPDXAnalysisException e) {
+        	throw new CycloneConversionException("SPDX error creating output file:"+e.getMessage(), e);
+        }
+	}
+
+
+	/**
      * Copy all of the objects from cyclone to the SPDX model store
      * @param cycloneBom
      * @param spdxModelStore
@@ -313,7 +330,7 @@ public class CycloneToSpdx {
         	}
         }
         copyDependencies(cycloneBom.getDependencies(), componentIdToSpdxElement, warnings);
-        if (Objects.isNull(cycloneBom.getProperties()) && !cycloneBom.getProperties().isEmpty()) {
+        if (Objects.nonNull(cycloneBom.getProperties()) && !cycloneBom.getProperties().isEmpty()) {
         	retainFidelity(spdxDoc, "properties", cycloneBom.getProperties(), warnings);
         }
         List<Service> services = cycloneBom.getServices();
@@ -332,8 +349,22 @@ public class CycloneToSpdx {
         		}
         	}
         }
-        // Compositions and pedigrees must be copied after the components
+        // Compositions and pedigrees must be copied after the components since they refer to translated compnents
         copyCompositions(cycloneBom.getCompositions(), componentIdToSpdxElement, warnings);
+        if (spdxDoc.getDocumentDescribes().isEmpty()) {
+        	if (Objects.nonNull(cycloneBom.getComponents()) && !cycloneBom.getComponents().isEmpty()) {
+        		// use the top level components
+            	for (Component component:cycloneBom.getComponents()) {
+            		spdxDoc.getDocumentDescribes().add(componentIdToSpdxElement.get(component.getBomRef()));
+            	}
+        	}
+        	
+        }
+        String name = "From-Cyclone-DX";
+        if (spdxDoc.getDocumentDescribes().size() == 1) {
+        	name = "SBOM-for-" + spdxDoc.getDocumentDescribes().toArray(new SpdxElement[0])[0].getName().get();
+        }
+        spdxDoc.setName(name);
         return documentUri;
     }
 
@@ -457,9 +488,9 @@ public class CycloneToSpdx {
 		if (Objects.nonNull(ancestors) && Objects.nonNull(ancestors.getComponents())) {
 			for (Component ancestor:ancestors.getComponents()) {
 				if (Scope.REQUIRED.equals(componentToElement(element, ancestor, componentIdElementMap, warnings))) {
-				SpdxElement ancestorElement = componentIdElementMap.get(ancestor.getBomRef());
-				Relationship relationship = element.createRelationship(ancestorElement, RelationshipType.ANCESTOR_OF, null);
-				element.addRelationship(relationship);
+					SpdxElement ancestorElement = componentIdElementMap.get(ancestor.getBomRef());
+					Relationship relationship = element.createRelationship(ancestorElement, RelationshipType.ANCESTOR_OF, null);
+					element.addRelationship(relationship);
 				} else {
 					warnings.add("Ancestor relationship has scope other than required");
 				}
@@ -530,17 +561,16 @@ public class CycloneToSpdx {
 			return null;
 		}
 		SpdxElement element;
-		String elementId = CdxBomRefToSpdxId(component.getBomRef());
+		String elementId = bomRefToSpdxId(component.getBomRef());
+		if (Objects.isNull(elementId)) {
+			elementId = spdxDoc.getModelStore().getNextId(IdType.SpdxId, spdxDoc.getDocumentUri());
+		}
 		String name = component.getName();
 		if (Objects.isNull(name)) {
 			warnings.add("Missing name for component");
 			name = "[MISSING]";
 		}
-		List<AnyLicenseInfo> seenLicenses = convertCycloneLicenseInfo(spdxDoc, component.getLicenseChoice(), warnings);
-		
-		if (seenLicenses.isEmpty()) {
-			seenLicenses.add(new SpdxNoAssertionLicense());
-		}
+
 		List<Hash> hashes = component.getHashes();
 		Checksum sha1 = null;
 		if (Objects.nonNull(hashes)) {
@@ -562,14 +592,16 @@ public class CycloneToSpdx {
 		
 		if (Type.FILE.equals(componentType) && !containsPackageOnlyProperties(component)) {
 			element = spdxDoc.createSpdxFile(elementId, name, 
-					new SpdxNoAssertionLicense(), seenLicenses, copyright, sha1)
+					new SpdxNoAssertionLicense(), new ArrayList<AnyLicenseInfo>(), copyright, sha1)
 					.build();
 			addFileProperties((SpdxFile)element, component, componentIdElementMap, warnings);
 		} else {
-			 element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, listToLicenseSet(spdxDoc, seenLicenses))
-						.build();
+			 element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, new SpdxNoAssertionLicense())
+					 .setFilesAnalyzed(false)
+					 .build();
 			 addPackageProperties((SpdxPackage)element, component, componentIdElementMap, warnings);
 		}
+		
 		Evidence evidence = component.getEvidence();
 		if (Objects.nonNull(evidence)) {
 			retainFidelity(element, "evidence", evidence, warnings);
@@ -586,7 +618,7 @@ public class CycloneToSpdx {
 		if (Objects.nonNull(group) && !group.isBlank()) {
 			retainFidelity(element, "group", group, warnings);
 		}
-		if (component.getModified()) {
+		if (Objects.nonNull(component.getModified()) && component.getModified()) {
 			warnings.add("Component "+name+" was flagged as modified.  This field is deprecated in CycloneDX and will not be represented in SPDX");
 		}
 		Pedigree pedigree = component.getPedigree();
@@ -604,6 +636,11 @@ public class CycloneToSpdx {
 		Swid swid = component.getSwid();
 		if (Objects.nonNull(swid)) {
 			retainFidelity(element, "swid", swid, warnings);
+		}
+		if (Objects.isNull(component.getBomRef())) {
+			//NOTE: This is the only place we modify the CycloneDX BOM after parsing
+			// This is needed to be able to reliably map CycloneDX components to SPDX Elements
+			component.setBomRef(element.getId());
 		}
 		componentIdElementMap.put(component.getBomRef(), element);
 		return scope;
@@ -630,19 +667,27 @@ public class CycloneToSpdx {
 				spdxPackage.setPackageVerificationCode(spdxPackage.createPackageVerificationCode(spdxPackage.getSha1(), new ArrayList<String>()));
 			}
 		}
+		spdxPackage.setLicenseDeclared(listToLicenseSet(spdxPackage, convertCycloneLicenseInfo(spdxPackage, component.getLicenseChoice(), warnings)));
 		List<Hash> hashes = component.getHashes();
-		for (Hash hash:hashes) {
-			ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
-			if (Objects.isNull(algorithm)) {
-				retainFidelity(spdxPackage, "hash", hash, warnings);
-			} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
-				spdxPackage.addChecksum(spdxPackage.createChecksum(algorithm, hash.getValue()));
+		if (Objects.nonNull(hashes)) {
+			for (Hash hash:hashes) {
+				ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
+				if (Objects.isNull(algorithm)) {
+					retainFidelity(spdxPackage, "hash", hash, warnings);
+				} else {
+					spdxPackage.addChecksum(spdxPackage.createChecksum(algorithm, hash.getValue()));
+				}
 			}
 		}
+		String publisher = component.getPublisher();
 		String author = component.getAuthor();
-		if (Objects.nonNull(author) && !author.isBlank()) {
+		if (Objects.nonNull(publisher) && !publisher.isBlank()) {
+			spdxPackage.setOriginator("Organization: "+publisher);
+			if (Objects.nonNull(author) && !author.isBlank()) {
+				retainFidelity(spdxPackage, "author", author, warnings);
+			}
+		} else if (Objects.nonNull(author) && !author.isBlank()) {
 			spdxPackage.setOriginator("Person: "+author);
-			warnings.add("Can not determine person or organization for Originator - using Person");
 		}
 		List<Component> subComponents = component.getComponents();
 		if (Objects.nonNull(subComponents)) {
@@ -673,37 +718,48 @@ public class CycloneToSpdx {
 		if (Objects.nonNull(externalReferences) && !externalReferences.isEmpty()) {
 			copyExternalReferences(externalReferences, spdxPackage, warnings);
 		}
+		if (spdxPackage.getDownloadLocation().isEmpty()) {
+			spdxPackage.setDownloadLocation(SpdxConstants.NOASSERTION_VALUE);
+		}
 		String mimeType = component.getMimeType();
 		if (Objects.nonNull(mimeType)) {
 			retainFidelity(spdxPackage, "mimeType", mimeType, warnings);
-		}
-		String publisher = component.getPublisher();
-		if (Objects.nonNull(publisher) && !publisher.isBlank()) {
-			spdxPackage.setOriginator(publisher);
 		}
 		OrganizationalEntity supplier = component.getSupplier();
 		if (Objects.nonNull(supplier) && !supplier.getName().isBlank()) {
 			StringBuilder sb = new StringBuilder("Organization: ");
 			sb.append(supplier.getName());
 			List<OrganizationalContact> contacts = supplier.getContacts();
+			String email = null;
+			boolean contactFidelity = false;
 			if (Objects.nonNull(contacts) && !contacts.isEmpty()) {
-				sb.append(" (");
 				for (int i = 0; i < contacts.size(); i++) {
 					OrganizationalContact contact = contacts.get(i);
-					if (i > 0) {
-						sb.append(", ");
+					
+					if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank() ||
+							Objects.nonNull(contact.getExtensibleTypes()) && !contact.getExtensibleTypes().isEmpty() ||
+							Objects.nonNull(contact.getExtensions()) && !contact.getExtensions().isEmpty()) {
+						contactFidelity = true;
 					}
-					if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank()) {
-						sb.append(contact.getName());
-						if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
-							sb.append(":");
-							sb.append(contact.getEmail());
+					if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+						if (Objects.isNull(email)) {
+							email = contact.getEmail();
+						} else {
+							contactFidelity = true;
 						}
-					} else if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
-						sb.append(contact.getEmail());
 					}
 				}
+			}
+			if (Objects.nonNull(email)) {
+				sb.append(" (");
+				sb.append(email);
 				sb.append(")");
+			}
+			if (contactFidelity) {
+				retainFidelity(spdxPackage, "supplier.contacts", supplier.getContacts(), warnings);
+			}
+			if (Objects.nonNull(supplier.getUrls()) && !supplier.getUrls().isEmpty()) {
+				retainFidelity(spdxPackage, "supplier.urls", supplier.getUrls(), warnings);
 			}
 			spdxPackage.setSupplier(sb.toString());
 			warnings.add("Supplier is assumed to be an organization");
@@ -733,13 +789,16 @@ public class CycloneToSpdx {
 	private static void addFileProperties(SpdxFile spdxFile,
 			Component component, Map<String, SpdxElement> componentIdElementMap,
 			List<String> warnings) throws InvalidSPDXAnalysisException {
+		spdxFile.getLicenseInfoFromFiles().addAll(convertCycloneLicenseInfo(spdxFile, component.getLicenseChoice(), warnings));
 		List<Hash> hashes = component.getHashes();
-		for (Hash hash:hashes) {
-			ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
-			if (Objects.isNull(algorithm)) {
-				retainFidelity(spdxFile, "hash", hash, warnings);
-			} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
-				spdxFile.addChecksum(spdxFile.createChecksum(algorithm, hash.getValue()));
+		if (Objects.nonNull(hashes)) {
+			for (Hash hash:hashes) {
+				ChecksumAlgorithm algorithm = CDX_ALGORITHM_TO_SPDX_ALGORITHM.get(hash.getAlgorithm());
+				if (Objects.isNull(algorithm)) {
+					retainFidelity(spdxFile, "hash", hash, warnings);
+				} else if (!ChecksumAlgorithm.SHA1.equals(algorithm)) {
+					spdxFile.addChecksum(spdxFile.createChecksum(algorithm, hash.getValue()));
+				}
 			}
 		}
 		String mimeType = component.getMimeType();
@@ -837,9 +896,10 @@ public class CycloneToSpdx {
 	 * @param parentElement SPDX Element containing the license
 	 * @param warnings
 	 * @return licenses that are equivalent to the CycloneDX license info
+	 * @throws InvalidSPDXAnalysisException 
 	 */
 	private static List<AnyLicenseInfo> convertCycloneLicenseInfo(SpdxElement parentElement,
-			LicenseChoice licenseChoice, List<String> warnings) {
+			LicenseChoice licenseChoice, List<String> warnings) throws InvalidSPDXAnalysisException {
 		List<AnyLicenseInfo> retval = new ArrayList<>();
 		if (Objects.nonNull(licenseChoice)) {	
 			String expression = licenseChoice.getExpression();
@@ -857,6 +917,21 @@ public class CycloneToSpdx {
 					try {
 						retval.add(LicenseInfoFactory.parseSPDXLicenseString(lic.getId(), 
 								parentElement.getModelStore(), parentElement.getDocumentUri(), parentElement.getCopyManager()));
+						if (Objects.nonNull(lic.getAttachmentText()) && Objects.nonNull(lic.getAttachmentText().getText()) &&
+								!lic.getAttachmentText().getText().isBlank()) {
+							//TODO - we may be able to create a local license in the SPDX doc to handle this case
+							retainFidelity(parentElement, "licenseChoice.licenses.attachmentText", lic.getAttachmentText(), warnings);
+						}
+						if (Objects.nonNull(lic.getUrl()) && !lic.getUrl().isBlank()) {
+							//TODO - we may be able to create a local license in the SPDX doc to handle this case
+							retainFidelity(parentElement, "licenseChoice.licenses.url", lic.getUrl(), warnings);
+						}
+						if (Objects.nonNull(lic.getExtensibleTypes()) && !lic.getExtensibleTypes().isEmpty()) {
+							retainFidelity(parentElement, "licenseChoice.licenses.extensibleTypes", lic.getExtensibleTypes(), warnings);
+						}
+						if (Objects.nonNull(lic.getExtensions()) && !lic.getExtensions().isEmpty()) {
+							retainFidelity(parentElement, "licenseChoice.licenses.extensions", lic.getExtensions(), warnings);
+						}
 					} catch(InvalidLicenseStringException ex) {
 						warnings.add("Invalid license id '"+lic.getId()+"'");
 					}
@@ -874,6 +949,9 @@ public class CycloneToSpdx {
 	 */
 	private static AnyLicenseInfo listToLicenseSet(SpdxElement parentElement,
 			List<AnyLicenseInfo> licenses) throws InvalidSPDXAnalysisException {
+		if (licenses.size() == 0) {
+			return new SpdxNoAssertionLicense();
+		}
 		if (licenses.size() == 1) {
 			return licenses.get(0);
 		} else {
@@ -891,9 +969,11 @@ public class CycloneToSpdx {
 	 * @param bomRef
 	 * @return SPDX Ref in valid format
 	 */
-	private static String CdxBomRefToSpdxId(String bomRef) {
-		Objects.requireNonNull(bomRef, "BOM Reference must not be null");
-		return SpdxConstants.SPDX_ELEMENT_REF_PRENUM + bomRef.replaceAll(INVALID_REF_REGEX, "_");
+	private static @Nullable String bomRefToSpdxId(String bomRef) {
+		if (Objects.isNull(bomRef)) {
+			return null;
+		}
+		return SpdxConstants.SPDX_ELEMENT_REF_PRENUM + bomRef.replaceAll(INVALID_REF_REGEX, "-");
 		//TODO: This may create a non-unique reference  - e.g. bomRef@ would equal bomRef^
 	}
 
@@ -974,8 +1054,7 @@ public class CycloneToSpdx {
                 		new ReferenceType("http://cyclonedx.org/referenctype/support"), url, comment));
                 break;
             case DISTRIBUTION:
-                spdxPackage.addExternalRef(spdxPackage.createExternalRef(ReferenceCategory.OTHER, 
-                		new ReferenceType("http://cyclonedx.org/referenctype/distribution"), url, comment));
+                spdxPackage.setDownloadLocation(url);
                 break;
             case LICENSE:
             	spdxPackage.addExternalRef(spdxPackage.createExternalRef(ReferenceCategory.OTHER, 
@@ -1010,6 +1089,7 @@ public class CycloneToSpdx {
     private static void copyMetadata(Metadata metadata, String cycloneSpecVersion, SpdxDocument spdxDoc, 
     		List<String> warnings) throws InvalidSPDXAnalysisException, CycloneConversionException {
         List<String> creators = new ArrayList<>();
+        boolean authorFidelity = false;
         for (OrganizationalContact oc:metadata.getAuthors()) {
             StringBuilder sb = new StringBuilder("Person: ");
             String name = oc.getName();
@@ -1025,7 +1105,16 @@ public class CycloneToSpdx {
                 sb.append(")");
             }
             creators.add(sb.toString());
+            if (Objects.nonNull(oc.getPhone()) && !oc.getPhone().isBlank() ||
+            		Objects.nonNull(oc.getExtensibleTypes()) && !oc.getExtensibleTypes().isEmpty() ||
+            		Objects.nonNull(oc.getExtensions()) && !oc.getExtensions().isEmpty()) {
+            	authorFidelity = true;
+            }
         }
+        if (authorFidelity) {
+        	retainFidelity(spdxDoc, "metadata.authors", metadata.getAuthors(), warnings);
+        }
+        boolean toolFidelity = false;
         for (Tool tool:metadata.getTools()) {
             StringBuilder sb = new StringBuilder("Tool: ");
             String name = tool.getName();
@@ -1045,23 +1134,18 @@ public class CycloneToSpdx {
                 sb.append(version);
             }
             creators.add(sb.toString());
+            if (Objects.nonNull(tool.getHashes()) && !tool.getHashes().isEmpty() ||
+            		Objects.nonNull(tool.getExtensibleTypes()) && !tool.getExtensibleTypes().isEmpty() ||
+            		Objects.nonNull(tool.getExtensions()) && !tool.getExtensions().isEmpty()) {
+            	toolFidelity = true;
+            }
+        }
+        if (toolFidelity) {
+        	retainFidelity(spdxDoc, "metadata.tools", metadata.getTools(), warnings);
         }
         OrganizationalEntity manufacture = metadata.getManufacture();
         if (Objects.nonNull(manufacture)) {
-            StringBuilder sb = new StringBuilder("Organization: ");
-            String name = manufacture.getName();
-            if (Objects.nonNull(name)) {
-                sb.append(name);
-            } else {
-                sb.append("[UNKNOWN]");
-            }
-            creators.add(sb.toString());
-            if (Objects.nonNull(manufacture.getContacts()) && manufacture.getContacts().size() > 0) {
-            	retainFidelity(spdxDoc, "metadata.manufacture.contacts", manufacture.getContacts(), warnings);
-            }
-            if (Objects.nonNull(manufacture.getUrls()) && manufacture.getUrls().size() > 0) {
-            	retainFidelity(spdxDoc, "metadata.manufacture.urls", manufacture.getUrls(), warnings);
-            }
+        	retainFidelity(spdxDoc, "metadata.manufacture", manufacture, warnings);
         }
         OrganizationalEntity supplier = metadata.getSupplier();
         if (Objects.nonNull(supplier)) {
@@ -1072,8 +1156,27 @@ public class CycloneToSpdx {
             } else {
                 sb.append("[UNKNOWN]");
             }
-            creators.add(sb.toString());
+            String email = null;
+            boolean contactFidelity = false;
             if (Objects.nonNull(supplier.getContacts()) && supplier.getContacts().size() > 0) {
+            	for (OrganizationalContact contact:supplier.getContacts()) {
+            		if (Objects.nonNull(contact.getEmail()) && !contact.getEmail().isBlank()) {
+            			if (Objects.isNull(email)) {
+            				email = contact.getEmail();
+            			} else {
+            				contactFidelity = true;
+            			}
+            		}
+            		if (Objects.nonNull(contact.getName()) && !contact.getName().isBlank() ||
+            				Objects.nonNull(contact.getPhone()) && !contact.getPhone().isBlank() ||
+                    		Objects.nonNull(contact.getExtensibleTypes()) && !contact.getExtensibleTypes().isEmpty() ||
+                    		Objects.nonNull(contact.getExtensions()) && !contact.getExtensions().isEmpty()) {
+            			contactFidelity = true;
+            		}
+            	}
+            }
+            creators.add(sb.toString());
+            if (contactFidelity) {
             	retainFidelity(spdxDoc, "metadata.supplier.contacts", supplier.getContacts(), warnings);  
             }
             if (Objects.nonNull(supplier.getUrls()) && supplier.getUrls().size() > 0) {
@@ -1103,8 +1206,9 @@ public class CycloneToSpdx {
         spdxDoc.setDataLicense(dataLicense);
         List<Property> properties = metadata.getProperties();
         if (Objects.nonNull(properties) && properties.size() > 0) {
-            retainFidelity(spdxDoc, "properties", properties, warnings);
+            retainFidelity(spdxDoc, "metadata.properties", properties, warnings);
         }
+        spdxDoc.setCreationInfo(creatorInfo);
     }
 
     /**
