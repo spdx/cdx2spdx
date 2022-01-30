@@ -771,33 +771,25 @@ public class CycloneToSpdx {
 		}
 		Evidence evidence = component.getEvidence();
 		if (Objects.nonNull(evidence)) {
-			StringBuilder sb = new StringBuilder();
 			List<Copyright> copyrights = evidence.getCopyright();
 			if (Objects.nonNull(copyrights) && !copyrights.isEmpty()) {
-				sb.append("Evidence copyrights: '");
-				sb.append(copyrights.get(0));
-				for (int i = 1; i < copyrights.size(); i++) {
-					sb.append("', '");
-					if (Objects.nonNull(copyrights.get(i).getText())) {
-						sb.append(copyrights.get(i).getText());
-					} else {
-						sb.append("[NO TEXT]");
+				for (Copyright copyright:copyrights) {
+					String copyrightText = copyright.getText();
+					if (Objects.nonNull(copyrightText) && !copyrightText.isBlank()) {
+						spdxPackage.getAttributionText().add(copyrightText);
 					}
 				}
-				sb.append("'; ");
 			}
 			if (Objects.nonNull(evidence.getLicenseChoice())) {
-				sb.append("Evidence License: ");
-				sb.append(licenseChoiceToSpdxLicense(evidence.getLicenseChoice()).toString());
-				sb.append("; ");
+				AnyLicenseInfo spdxLicenseEvidence = licenseChoiceToSpdxLicense(evidence.getLicenseChoice());
+				if (Objects.nonNull(spdxLicenseEvidence) && !(spdxLicenseEvidence instanceof SpdxNoAssertionLicense)) {
+					spdxPackage.getAttributionText().add("Evidence license text for: "+spdxLicenseEvidence.toString());
+					//TODO: We can convert the license text found in each license choice by decoding the text (e.g. base64 decoding)
+					retainFidelity(spdxPackage, "evidence.licenseChoice", evidence.getLicenseChoice(), warnings);
+				}
 			}
-			if (Objects.nonNull(component.getModified()) && component.getModified()) {
-				sb.append("This package has been modified");
-			}
-			if (sb.length() > 0) {
-				spdxPackage.setSourceInfo(sb.toString());
-			}
-		} else if (Objects.nonNull(component.getModified()) && component.getModified()) {
+		}
+		if (Objects.nonNull(component.getModified()) && component.getModified()) {
 			spdxPackage.setSourceInfo("This package has been modified");
 		}
 	}
