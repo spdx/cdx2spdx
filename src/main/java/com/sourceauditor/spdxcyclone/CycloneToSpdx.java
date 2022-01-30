@@ -96,7 +96,7 @@ import com.google.gson.GsonBuilder;
 /**
  * Converts between CycloneDX and SPDX
  * 
- * Based on the spreadsheet https://docs.google.com/spreadsheets/d/1pgpUdnucEtZ3oNcM2WYB05O6GG62vs61jPR1eKTcqR8/edit#gid=194053780
+ * Based on the spreadsheet https://docs.google.com/spreadsheets/d/1PIiSYLJHlt8djG5OoOYniy_I-J31UMhBKQ62UUBHKVA/edit?usp=sharing
  * 
  * @author Gary O'Neall
  *
