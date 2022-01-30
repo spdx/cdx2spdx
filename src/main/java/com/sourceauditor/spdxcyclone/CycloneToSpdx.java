@@ -11,7 +11,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -34,6 +33,7 @@ import org.cyclonedx.model.Component.Scope;
 import org.cyclonedx.model.Component.Type;
 import org.cyclonedx.model.Composition;
 import org.cyclonedx.model.Composition.Aggregate;
+import org.cyclonedx.model.Copyright;
 import org.cyclonedx.model.Dependency;
 import org.cyclonedx.model.Descendants;
 import org.cyclonedx.model.Evidence;
@@ -304,6 +304,7 @@ public class CycloneToSpdx {
         	serialNumber = UUID.randomUUID().toString();
         }
         String documentUri = CYCLONE_URI_PREFIX +  serialNumber;
+		documentUri = documentUri + "_" + cycloneBom.getVersion();
         SpdxDocument spdxDoc = null;
         try {
             spdxDoc = SpdxModelFactory.createSpdxDocument(spdxModelStore, documentUri, copyManager);
@@ -602,10 +603,6 @@ public class CycloneToSpdx {
 			 addPackageProperties((SpdxPackage)element, component, componentIdElementMap, warnings);
 		}
 		
-		Evidence evidence = component.getEvidence();
-		if (Objects.nonNull(evidence)) {
-			retainFidelity(element, "evidence", evidence, warnings);
-		}
 		List<ExtensibleType> extensibleTypes = component.getExtensibleTypes();
 		if (Objects.nonNull(extensibleTypes) && !extensibleTypes.isEmpty()) {
 			retainFidelity(element, "extensibleTypes", extensibleTypes, warnings);
@@ -617,9 +614,6 @@ public class CycloneToSpdx {
 		String group = component.getGroup();
 		if (Objects.nonNull(group) && !group.isBlank()) {
 			retainFidelity(element, "group", group, warnings);
-		}
-		if (Objects.nonNull(component.getModified()) && component.getModified()) {
-			warnings.add("Component "+name+" was flagged as modified.  This field is deprecated in CycloneDX and will not be represented in SPDX");
 		}
 		Pedigree pedigree = component.getPedigree();
 		if (Objects.nonNull(pedigree)) {
@@ -775,6 +769,37 @@ public class CycloneToSpdx {
 					purl, null);
 			spdxPackage.addExternalRef(purlRef);
 		}
+		Evidence evidence = component.getEvidence();
+		if (Objects.nonNull(evidence)) {
+			StringBuilder sb = new StringBuilder();
+			List<Copyright> copyrights = evidence.getCopyright();
+			if (Objects.nonNull(copyrights) && !copyrights.isEmpty()) {
+				sb.append("Evidence copyrights: '");
+				sb.append(copyrights.get(0));
+				for (int i = 1; i < copyrights.size(); i++) {
+					sb.append("', '");
+					if (Objects.nonNull(copyrights.get(i).getText())) {
+						sb.append(copyrights.get(i).getText());
+					} else {
+						sb.append("[NO TEXT]");
+					}
+				}
+				sb.append("'; ");
+			}
+			if (Objects.nonNull(evidence.getLicenseChoice())) {
+				sb.append("Evidence License: ");
+				sb.append(licenseChoiceToSpdxLicense(evidence.getLicenseChoice()).toString());
+				sb.append("; ");
+			}
+			if (Objects.nonNull(component.getModified()) && component.getModified()) {
+				sb.append("This package has been modified");
+			}
+			if (sb.length() > 0) {
+				spdxPackage.setSourceInfo(sb.toString());
+			}
+		} else if (Objects.nonNull(component.getModified()) && component.getModified()) {
+			spdxPackage.setSourceInfo("This package has been modified");
+		}
 	}
 	
 	/**
@@ -825,6 +850,7 @@ public class CycloneToSpdx {
 				(Objects.nonNull(component.getVersion()) && !component.getVersion().isBlank()) &&
 				(Objects.nonNull(component.getPurl()) && !component.getPurl().isBlank()) &&
 				(Objects.nonNull(component.getComponents()) && !component.getComponents().isEmpty()) &&
+				(Objects.nonNull(component.getEvidence())) &&
 				(Objects.nonNull(component.getExternalReferences()) && !component.getExternalReferences().isEmpty()));
 	}
 
