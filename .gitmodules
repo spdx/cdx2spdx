@@ -1,3 +1,6 @@
 [submodule "src/test/resources/specification"]
 	path = src/test/resources/specification
 	url = git@github.com:CycloneDX/specification.git
+[submodule "src/test/resources/bom-examples"]
+	path = src/test/resources/bom-examples
+	url = https://github.com/CycloneDX/bom-examples

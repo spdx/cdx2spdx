@@ -85,6 +85,7 @@ import org.spdx.library.referencetype.ListedReferenceTypes;
 import org.spdx.spdxRdfStore.RdfStore;
 import org.spdx.spreadsheetstore.SpreadsheetStore;
 import org.spdx.spreadsheetstore.SpreadsheetStore.SpreadsheetFormatType;
+import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
 import org.spdx.storage.ISerializableModelStore;
 import org.spdx.storage.simple.InMemSpdxStore;
@@ -293,7 +294,7 @@ public class CycloneToSpdx {
      * @throws InvalidSPDXAnalysisException 
      * @throws CycloneConversionException 
      */
-    private static String copyCycloneToSpdx(Bom cycloneBom, ISerializableModelStore spdxModelStore, List<String> warnings) throws InvalidSPDXAnalysisException, CycloneConversionException {
+    public static String copyCycloneToSpdx(Bom cycloneBom, IModelStore spdxModelStore, List<String> warnings) throws InvalidSPDXAnalysisException, CycloneConversionException {
         ModelCopyManager copyManager = new ModelCopyManager();
         String serialNumber = cycloneBom.getSerialNumber();
         if (Objects.nonNull(serialNumber)) {
@@ -1106,27 +1107,33 @@ public class CycloneToSpdx {
      */
     private static void copyMetadata(Metadata metadata, String cycloneSpecVersion, SpdxDocument spdxDoc, 
     		List<String> warnings) throws InvalidSPDXAnalysisException, CycloneConversionException {
+    	if (Objects.isNull(metadata)) {
+    		return;
+    	}
         List<String> creators = new ArrayList<>();
         boolean authorFidelity = false;
-        for (OrganizationalContact oc:metadata.getAuthors()) {
-            StringBuilder sb = new StringBuilder("Person: ");
-            String name = oc.getName();
-            String email = oc.getEmail();
-            if (Objects.nonNull(name)) {
-                sb.append(name);
-            } else {
-                sb.append("[UNKNOWN]");
-            }
-            if (Objects.nonNull(email)) {
-                sb.append(" (");
-                sb.append(email);
-                sb.append(")");
-            }
-            creators.add(sb.toString());
-            if (Objects.nonNull(oc.getPhone()) && !oc.getPhone().isBlank() ||
-            		Objects.nonNull(oc.getExtensibleTypes()) && !oc.getExtensibleTypes().isEmpty() ||
-            		Objects.nonNull(oc.getExtensions()) && !oc.getExtensions().isEmpty()) {
-            	authorFidelity = true;
+        List<OrganizationalContact> authors = metadata.getAuthors();
+        if (Objects.nonNull(authors) && !authors.isEmpty()) {
+            for (OrganizationalContact oc:metadata.getAuthors()) {
+                StringBuilder sb = new StringBuilder("Person: ");
+                String name = oc.getName();
+                String email = oc.getEmail();
+                if (Objects.nonNull(name)) {
+                    sb.append(name);
+                } else {
+                    sb.append("[UNKNOWN]");
+                }
+                if (Objects.nonNull(email)) {
+                    sb.append(" (");
+                    sb.append(email);
+                    sb.append(")");
+                }
+                creators.add(sb.toString());
+                if (Objects.nonNull(oc.getPhone()) && !oc.getPhone().isBlank() ||
+                		Objects.nonNull(oc.getExtensibleTypes()) && !oc.getExtensibleTypes().isEmpty() ||
+                		Objects.nonNull(oc.getExtensions()) && !oc.getExtensions().isEmpty()) {
+                	authorFidelity = true;
+                }
             }
         }
         if (authorFidelity) {

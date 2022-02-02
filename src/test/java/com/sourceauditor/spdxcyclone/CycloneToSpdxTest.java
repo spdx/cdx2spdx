@@ -17,7 +17,12 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
+import org.cyclonedx.BomParserFactory;
+import org.cyclonedx.exception.ParseException;
+import org.cyclonedx.model.Bom;
+import org.cyclonedx.parsers.Parser;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,6 +30,7 @@ import org.spdx.jacksonstore.MultiFormatStore;
 import org.spdx.jacksonstore.MultiFormatStore.Format;
 import org.spdx.jacksonstore.MultiFormatStore.Verbose;
 import org.spdx.library.InvalidSPDXAnalysisException;
+import org.spdx.library.ModelCopyManager;
 import org.spdx.library.model.Annotation;
 import org.spdx.library.model.Checksum;
 import org.spdx.library.model.ExternalRef;
@@ -37,6 +43,7 @@ import org.spdx.library.model.enumerations.ChecksumAlgorithm;
 import org.spdx.library.model.enumerations.ReferenceCategory;
 import org.spdx.library.model.enumerations.RelationshipType;
 import org.spdx.library.referencetype.ListedReferenceTypes;
+import org.spdx.storage.IModelStore;
 import org.spdx.storage.simple.InMemSpdxStore;
 
 /**
@@ -48,6 +55,8 @@ public class CycloneToSpdxTest {
 	static final Path CDX_TEST_RESOURCES = Paths.get("src", "test", "resources", "specification", "tools",
 			"src", "test", "resources");
 	static final Path VALID_BOM_PATH = Paths.get(CDX_TEST_RESOURCES.toString(), "1.4", "valid-bom-1.4.json");
+	static final Path CDX_EXAMPLES = Paths.get("src", "test", "resources", "bom-examples");
+	static final Path CDX_SBOM_EXAMPLES = Paths.get(CDX_EXAMPLES.toString(), "SBOM");
 
 	/**
 	 * @throws java.lang.Exception
@@ -61,6 +70,41 @@ public class CycloneToSpdxTest {
 	 */
 	@After
 	public void tearDown() throws Exception {
+	}
+	
+	@Test
+	public void testAllSbomExamples() throws CycloneConversionException, IOException, InvalidSPDXAnalysisException {
+		// Test all the SBOM examples to see if any don't verify
+		try (Stream<Path> paths = Files.walk(CDX_SBOM_EXAMPLES)) {
+			paths.filter(Files::isRegularFile).forEach(path -> {
+				File f = path.toFile();
+				if (f.getName().endsWith(".json")) {
+					Parser cycloneParser;
+					try {
+						cycloneParser = BomParserFactory.createParser(f);
+						Bom cycloneBom = cycloneParser.parse(f);
+						List<String> warnings = new ArrayList<>();
+						IModelStore store = new InMemSpdxStore();
+						ModelCopyManager copyManager = new ModelCopyManager();
+						try {
+							String docUri = CycloneToSpdx.copyCycloneToSpdx(cycloneBom, store, warnings);
+							SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, docUri, copyManager);
+							List<String> verify = doc.verify();
+							if (!verify.isEmpty()) {
+								fail("SBOM "+path.getFileName()+" has "+verify.size()+" verification errors.");
+							}
+						} catch (InvalidSPDXAnalysisException
+								| CycloneConversionException e) {
+							fail("Conversion exception for SBOM "+path.getFileName()+": "+e.getMessage());
+						}
+					} catch (ParseException e) {
+						fail("Parse exception for SBOM "+path.getFileName()+": "+e.getMessage());
+					}
+		            
+				}
+	            
+			});
+		}
 	}
 
 	@Test
