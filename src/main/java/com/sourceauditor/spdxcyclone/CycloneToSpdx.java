@@ -1140,29 +1140,32 @@ public class CycloneToSpdx {
         	retainFidelity(spdxDoc, "metadata.authors", metadata.getAuthors(), warnings);
         }
         boolean toolFidelity = false;
-        for (Tool tool:metadata.getTools()) {
-            StringBuilder sb = new StringBuilder("Tool: ");
-            String name = tool.getName();
-            String vendor = tool.getVendor();
-            String version = tool.getVersion();
-            if (Objects.nonNull(vendor)) {
-                sb.append(vendor);
-                sb.append(":");
-            }
-            if (Objects.nonNull(name)) {
-                sb.append(name);
-            } else {
-                sb.append("[UNKNOWN]");
-            }
-            if (Objects.nonNull(version)) {
-                sb.append("-");
-                sb.append(version);
-            }
-            creators.add(sb.toString());
-            if (Objects.nonNull(tool.getHashes()) && !tool.getHashes().isEmpty() ||
-            		Objects.nonNull(tool.getExtensibleTypes()) && !tool.getExtensibleTypes().isEmpty() ||
-            		Objects.nonNull(tool.getExtensions()) && !tool.getExtensions().isEmpty()) {
-            	toolFidelity = true;
+        final List<Tool> tools = metadata.getTools();
+        if (tools != null) {
+            for (Tool tool : tools) {
+                StringBuilder sb = new StringBuilder("Tool: ");
+                String name = tool.getName();
+                String vendor = tool.getVendor();
+                String version = tool.getVersion();
+                if (Objects.nonNull(vendor)) {
+                    sb.append(vendor);
+                    sb.append(":");
+                }
+                if (Objects.nonNull(name)) {
+                    sb.append(name);
+                } else {
+                    sb.append("[UNKNOWN]");
+                }
+                if (Objects.nonNull(version)) {
+                    sb.append("-");
+                    sb.append(version);
+                }
+                creators.add(sb.toString());
+                if (Objects.nonNull(tool.getHashes()) && !tool.getHashes().isEmpty() ||
+                        Objects.nonNull(tool.getExtensibleTypes()) && !tool.getExtensibleTypes().isEmpty() ||
+                        Objects.nonNull(tool.getExtensions()) && !tool.getExtensions().isEmpty()) {
+                    toolFidelity = true;
+                }
             }
         }
         if (toolFidelity) {
