@@ -26,6 +26,29 @@ where `<propertyname>` is the CycloneDX property name and `<propertyJSONvalue>` 
 
 CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneDX type file, if there are any properties which require a package (e.g. supplier, originator), the component is converted to an SPDX package with the packageFileName having the value of the component name.  If a CycloneDX type file has no package properties, it is converted to an SPDX File.  This is basically a Duck Typing approach since Cyclone DX does not distinguish different classes for files and packages.
 
+## Development
+
+  * Clone requires sub modules to run test suite
+
+      git submodule update --init --recursive
+
+    To run the unit test suite, you will need to include the git submodules that contain various test resources.
+    Otherwise, you may see test errors like the ones below:
+
+        testAllSbomExamples(com.sourceauditor.spdxcyclone.CycloneToSpdxTest)  Time elapsed: 0.005 sec  <<< ERROR!
+        java.nio.file.NoSuchFileException: src/test/resources/bom-examples/SBOM
+                at java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)
+
+    or:
+
+        com.sourceauditor.spdxcyclone.CycloneConversionException: File src/test/resources/specification/tools/src/test/resources/1.4/valid-bom-1.4.json does not exist.
+
+    Run the command below after a normal `git clone` to also pull down submodules required by the test suite:
+
+        git submodule update --init --recursive
+
+    After running the above command, `mvn clean package` should succeed.
+
 ## Contributing
 Contributions are welcome.  See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
 
