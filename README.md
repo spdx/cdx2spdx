@@ -47,7 +47,7 @@ CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneD
 
         git submodule update --init --recursive
 
-    After running the above command, `mvn clean package` should succeed.
+    After running the above command, `./mvnw clean package` should succeed.
 
 ## Contributing
 Contributions are welcome.  See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
