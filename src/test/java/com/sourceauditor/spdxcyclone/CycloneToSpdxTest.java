@@ -327,4 +327,19 @@ public class CycloneToSpdxTest {
 		assertTrue(f.delete());
 	}
 
+    static final Path CDX_BOMS = Paths.get("src", "test", "resources", "cdxboms");
+
+    @Test
+    public void testMetadataToolsEmpty() throws ParseException, CycloneConversionException, InvalidSPDXAnalysisException {
+        final File emptyToolsBom = new File(Paths.get(CDX_BOMS.toString(), "empty-tools").toFile(), "empty-tools.sbom.json");
+
+	final Bom cycloneBom = BomParserFactory.createParser(emptyToolsBom).parse(emptyToolsBom);
+
+	final IModelStore store = new InMemSpdxStore();
+	final String docUri = CycloneToSpdx.copyCycloneToSpdx(cycloneBom, store, new ArrayList<>());
+
+	final SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, docUri, new ModelCopyManager());
+        final List<String> verify = doc.verify();
+	assertTrue(verify.toString(), verify.isEmpty());
+    }
 }
