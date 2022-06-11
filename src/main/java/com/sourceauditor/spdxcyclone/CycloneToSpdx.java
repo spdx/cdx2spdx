@@ -116,7 +116,7 @@ public class CycloneToSpdx {
     static final String REFERENCE_SITE_BOWER = "http://bower.io/";
     static final SimpleDateFormat SPDX_DATE_FORMAT = new SimpleDateFormat(SpdxConstants.SPDX_DATE_FORMAT);
 
-	private static final String INVALID_REF_REGEX = "[^0-9a-zA-Z\\.\\-\\+_]";
+	private static final String INVALID_REF_REGEX = "[^0-9a-zA-Z\\.\\-\\+]";
 
 	private static final String NULL_SHA1_VALUE = "0000000000000000000000000000000000000000";
     
