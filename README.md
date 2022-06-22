@@ -6,7 +6,7 @@ Prototype utility that converts SBOM documents from [CycloneDX](https://cycloned
 This code is still under development and may not be considered stable.
 
 ## Usage
-`java -jar spdxcyclone.jar cyclonedx.json spdx.json`
+`java -jar spdxcyclone-[version]-jar-with-dependencies.jar cyclonedx.json spdx.json`
 
 where `cyclonedx.json` is an existing CycloneDX JSON file and `spdx.json` is a file path to the resulting SPDX file generated from the CycloneDX file.
 
