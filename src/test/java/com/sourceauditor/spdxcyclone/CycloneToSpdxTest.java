@@ -83,12 +83,12 @@ public class CycloneToSpdxTest {
 					try {
 						cycloneParser = BomParserFactory.createParser(f);
 						Bom cycloneBom = cycloneParser.parse(f);
-						List<String> warnings = new ArrayList<>();
 						IModelStore store = new InMemSpdxStore();
 						ModelCopyManager copyManager = new ModelCopyManager();
 						try {
-							String docUri = CycloneToSpdx.copyCycloneToSpdx(cycloneBom, store, warnings);
-							SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, docUri, copyManager);
+							CycloneSpdxConverter converter = new CycloneSpdxConverter(cycloneBom, store);
+							converter.convert();
+							SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, converter.getDocumentUri(), copyManager);
 							List<String> verify = doc.verify();
 							if (!verify.isEmpty()) {
 								fail("SBOM "+path.getFileName()+" has "+verify.size()+" verification errors.");
@@ -109,11 +109,10 @@ public class CycloneToSpdxTest {
 
 	@Test
 	public void testValidSbomV1dot4() throws CycloneConversionException, IOException, InvalidSPDXAnalysisException {
-		List<String> warnings = new ArrayList<>();
 		File resultDirectory = Files.createTempDirectory("cdxTest").toFile();
 		try {
 			String resultFilePath = resultDirectory + File.separator + "resultSpdx.json";
-			CycloneToSpdx.cycloneDxToSpdx(VALID_BOM_PATH.toString(), resultFilePath, warnings);
+			CycloneToSpdx.cycloneDxToSpdx(VALID_BOM_PATH.toString(), resultFilePath);
 			MultiFormatStore store = new MultiFormatStore(new InMemSpdxStore(), Format.JSON_PRETTY, Verbose.COMPACT);
 			String documentUri;
 			try (InputStream is = new FileInputStream(new File(resultFilePath))) {
@@ -336,9 +335,9 @@ public class CycloneToSpdxTest {
 	final Bom cycloneBom = BomParserFactory.createParser(emptyToolsBom).parse(emptyToolsBom);
 
 	final IModelStore store = new InMemSpdxStore();
-	final String docUri = CycloneToSpdx.copyCycloneToSpdx(cycloneBom, store, new ArrayList<>());
-
-	final SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, docUri, new ModelCopyManager());
+	CycloneSpdxConverter converter = new CycloneSpdxConverter(cycloneBom, store);
+	converter.convert();
+	final SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, converter.getDocumentUri(), new ModelCopyManager());
         final List<String> verify = doc.verify();
 	assertTrue(verify.toString(), verify.isEmpty());
     }
