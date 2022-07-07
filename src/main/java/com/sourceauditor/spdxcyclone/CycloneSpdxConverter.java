@@ -63,6 +63,7 @@ import org.spdx.library.model.SpdxPackage;
 import org.spdx.library.model.enumerations.AnnotationType;
 import org.spdx.library.model.enumerations.ChecksumAlgorithm;
 import org.spdx.library.model.enumerations.FileType;
+import org.spdx.library.model.enumerations.Purpose;
 import org.spdx.library.model.enumerations.ReferenceCategory;
 import org.spdx.library.model.enumerations.RelationshipType;
 import org.spdx.library.model.license.AnyLicenseInfo;
@@ -120,6 +121,22 @@ public class CycloneSpdxConverter {
     	algToSpdx.put("SHA-512", ChecksumAlgorithm.SHA512);
     	CDX_ALGORITHM_TO_SPDX_ALGORITHM = Collections.unmodifiableMap(algToSpdx);
     }
+    
+    static Map<Component.Type, Purpose> COMPONENT_TYPE_TO_PURPOSE;
+    
+    static {
+    	Map<Component.Type, Purpose> compPurpose = new HashMap<>();
+    	compPurpose.put(Component.Type.APPLICATION, Purpose.APPLICATION);
+    	compPurpose.put(Component.Type.CONTAINER, Purpose.CONTAINER);
+    	compPurpose.put(Component.Type.DEVICE, Purpose.DEVICE);
+    	compPurpose.put(Component.Type.FILE, Purpose.FILE);
+    	compPurpose.put(Component.Type.FIRMWARE, Purpose.FIRMWARE);
+    	compPurpose.put(Component.Type.FRAMEWORK, Purpose.FRAMEWORK);
+    	compPurpose.put(Component.Type.LIBRARY, Purpose.LIBRARY);
+    	compPurpose.put(Component.Type.OPERATING_SYSTEM, Purpose.OPERATING_SYSTEM);
+    	COMPONENT_TYPE_TO_PURPOSE = Collections.unmodifiableMap(compPurpose);
+    }
+    
 	private Bom cycloneBom;
 	private IModelStore spdxModelStore;
 	private ModelCopyManager copyManager;
@@ -479,6 +496,7 @@ public class CycloneSpdxConverter {
 		} else {
 			 element = spdxDoc.createPackage(elementId, name, new SpdxNoAssertionLicense(), copyright, new SpdxNoAssertionLicense())
 					 .setFilesAnalyzed(false)
+					 .setPrimaryPurpose(COMPONENT_TYPE_TO_PURPOSE.get(componentType))
 					 .build();
 			 addPackageProperties((SpdxPackage)element, component);
 		}
