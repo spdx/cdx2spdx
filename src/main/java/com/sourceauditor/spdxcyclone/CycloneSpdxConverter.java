@@ -945,7 +945,8 @@ public class CycloneSpdxConverter {
                 break;
             case ADVISORIES:
                 spdxPackage.addExternalRef(spdxPackage.createExternalRef(ReferenceCategory.SECURITY, 
-                		new ReferenceType("http://cyclonedx.org/referenctype/advisories"), url, comment));
+                		ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("advisory"),
+                		url, comment));
                 break;
             case BOM:
             	spdxPackage.addExternalRef(spdxPackage.createExternalRef(ReferenceCategory.OTHER, 

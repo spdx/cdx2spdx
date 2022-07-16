@@ -362,5 +362,9 @@ public class CycloneToSpdxTest {
 		
 		// new checksum algorithms
 		assertEquals(ChecksumAlgorithm.SHA3_256, pkg.getChecksums().toArray(new Checksum[1])[0].getAlgorithm());
+		
+		// Advisory external reference
+		assertEquals(ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("advisory"),
+				pkg.getExternalRefs().toArray(new ExternalRef[1])[0].getReferenceType());
     }
 }

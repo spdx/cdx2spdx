@@ -34,16 +34,8 @@
       "purl": "pkg:npm/juice-shop@11.1.2",
       "externalReferences": [
         {
-          "type": "website",
-          "url": "https://owasp-juice.shop"
-        },
-        {
-          "type": "issue-tracker",
-          "url": "https://github.com/bkimminich/juice-shop/issues"
-        },
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/bkimminich/juice-shop.git"
+          "type": "advisories",
+          "url": "https://some.advisory/service.html"
         }
       ]
     }
