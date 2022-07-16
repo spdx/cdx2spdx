@@ -18,6 +18,12 @@
       "name": "juice-shop",
       "version": "11.1.2",
       "description": "Probably the most modern and sophisticated insecure web application",
+      "hashes": [
+        {
+          "alg": "SHA3-256",
+          "content": "77e9f353431833c316bd41dc88670d9ad21d2e5950d6f5e2346f2e8859f4fc9b"
+        }
+      ],
       "licenses": [
         {
           "license": {

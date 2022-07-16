@@ -118,7 +118,14 @@ public class CycloneSpdxConverter {
 //    	algToSpdx.put("", ChecksumAlgorithm.SHA224); No equivalent CDX checksum
     	algToSpdx.put("SHA-256", ChecksumAlgorithm.SHA256);
     	algToSpdx.put("SHA-384", ChecksumAlgorithm.SHA384);
-    	algToSpdx.put("SHA-512", ChecksumAlgorithm.SHA512);
+    	algToSpdx.put("SHA-512", ChecksumAlgorithm.SHA512);    	
+    	algToSpdx.put("SHA3-256", ChecksumAlgorithm.SHA3_256);
+    	algToSpdx.put("SHA3-384", ChecksumAlgorithm.SHA3_384);
+    	algToSpdx.put("SHA3-512", ChecksumAlgorithm.SHA3_512);
+    	algToSpdx.put("BLAKE2b-256", ChecksumAlgorithm.BLAKE2b_256);
+    	algToSpdx.put("BLAKE2b-384", ChecksumAlgorithm.BLAKE2b_384);
+    	algToSpdx.put("BLAKE2b-512", ChecksumAlgorithm.BLAKE2b_512);
+    	algToSpdx.put("BLAKE3", ChecksumAlgorithm.BLAKE3);
     	CDX_ALGORITHM_TO_SPDX_ALGORITHM = Collections.unmodifiableMap(algToSpdx);
     }
     

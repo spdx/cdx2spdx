@@ -360,5 +360,7 @@ public class CycloneToSpdxTest {
 		// Primary package purpos
 		assertEquals(Purpose.LIBRARY, pkg.getPrimaryPurpose().get());
 		
+		// new checksum algorithms
+		assertEquals(ChecksumAlgorithm.SHA3_256, pkg.getChecksums().toArray(new Checksum[1])[0].getAlgorithm());
     }
 }
