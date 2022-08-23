@@ -191,11 +191,10 @@ public class CycloneToSpdxTest {
 							**/
 							expectedAnnotations.add("PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiID8"); // part of the SWID content
 							assertAnnotationsContains(pkg.getAnnotations(), expectedAnnotations);
-						} else if ("tomcat-catalina".equals(pkg.getName().get())) {
+						} else if ("com.acme:tomcat-catalina".equals(pkg.getName().get())) {
 							List<String> expectedAnnotations = new ArrayList<>();
 							expectedAnnotations.add("library".toUpperCase());	// type
 							assertTrue(pkg.getOriginator().get().contains("Acme Inc"));
-							expectedAnnotations.add("com.acme"); // group
 							assertEquals("9.0.14", pkg.getVersionInfo().get());
 							if (pkg.getId().contains("npm")) {
 								// There are 3 in the BOM test file with the same name - one has more details
@@ -247,7 +246,7 @@ public class CycloneToSpdxTest {
 								int numDependencies = 0;
 								for (Relationship relationship:relationships) {
 									SpdxPackage relatedPackage = (SpdxPackage)relationship.getRelatedSpdxElement().get();
-									assertEquals("tomcat-catalina", relatedPackage.getName().get());
+									assertEquals("com.acme:tomcat-catalina", relatedPackage.getName().get());
 									
 									assertEquals("9.0.14", relatedPackage.getVersionInfo().get());
 									if (RelationshipType.ANCESTOR_OF.equals(relationship.getRelationshipType())) {
@@ -264,7 +263,7 @@ public class CycloneToSpdxTest {
 								expectedAnnotations.add("2018-11-13T"); // commit
 							}
 							assertAnnotationsContains(pkg.getAnnotations(), expectedAnnotations);
-						} else if ("mylibrary".equals(pkg.getName().get())) {
+						} else if ("org.example:mylibrary".equals(pkg.getName().get())) {
 							List<String> expectedAnnotations = new ArrayList<>();
 							assertTrue(pkg.getSupplier().get().contains("Example, Inc."));
 							assertTrue(pkg.getSupplier().get().contains("support@example.com"));
@@ -274,7 +273,6 @@ public class CycloneToSpdxTest {
 							assertEquals("Person: Example Super Heros", pkg.getOriginator().get());
 							expectedAnnotations.add("https://example.com");
 							expectedAnnotations.add("https://example.net");
-							expectedAnnotations.add("org.example");
 							assertEquals("1.0.0", pkg.getVersionInfo().get());
 							assertAnnotationsContains(pkg.getAnnotations(), expectedAnnotations);
 						} else {
@@ -286,8 +284,8 @@ public class CycloneToSpdxTest {
 				});
 			assertEquals(5, foundComponentNames.size());
 			assertTrue(foundComponentNames.contains("Acme Application"));
-			assertTrue(foundComponentNames.contains("tomcat-catalina"));
-			assertTrue(foundComponentNames.contains("mylibrary"));
+			assertTrue(foundComponentNames.contains("com.acme:tomcat-catalina"));
+			assertTrue(foundComponentNames.contains("org.example:mylibrary"));
 		} finally {
 			deleteDirOrFile(resultDirectory);
 		}

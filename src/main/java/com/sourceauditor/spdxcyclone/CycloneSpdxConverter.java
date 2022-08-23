@@ -479,6 +479,11 @@ public class CycloneSpdxConverter {
 			warnings.add("Missing name for component");
 			name = "[MISSING]";
 		}
+		
+		String group = component.getGroup();
+		if (Objects.nonNull(group) && !group.isBlank()) {
+			name = group + ":" + name;
+		}
 
 		List<Hash> hashes = component.getHashes();
 		Checksum sha1 = null;
@@ -519,10 +524,6 @@ public class CycloneSpdxConverter {
 		Map<String, Extension> extensions = component.getExtensions();
 		if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
 			retainFidelity(element, "extensions", extensions, warnings);
-		}
-		String group = component.getGroup();
-		if (Objects.nonNull(group) && !group.isBlank()) {
-			retainFidelity(element, "group", group, warnings);
 		}
 		Pedigree pedigree = component.getPedigree();
 		if (Objects.nonNull(pedigree)) {
