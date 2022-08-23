@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -96,6 +97,9 @@ public class CycloneSpdxConverter {
     static final String REFERENCE_SITE_NUGET = "https://www.nuget.org/";
     static final String REFERENCE_SITE_BOWER = "http://bower.io/";
     static final SimpleDateFormat SPDX_DATE_FORMAT = new SimpleDateFormat(SpdxConstants.SPDX_DATE_FORMAT);
+    static {
+    	SPDX_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("GMT"));
+    }
 
 	private static final String INVALID_REF_REGEX = "[^0-9a-zA-Z\\.\\-\\+]";
 
