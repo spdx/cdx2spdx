@@ -3657,6 +3657,7 @@
       "licenses": [
         {
           "license": {
+            "id": "MIT-or-Apache-2.0",
             "name": "(MIT OR Apache-2.0)"
           }
         }
@@ -16576,6 +16577,7 @@
       "licenses": [
         {
           "license": {
+            "id": "bsd-2-clause-or-mit-or-apache-2.0",
             "name": "(BSD-2-Clause OR MIT OR Apache-2.0)"
           }
         }
@@ -19877,6 +19879,7 @@
       "licenses": [
         {
           "license": {
+            "id": "bsd-3-clause-or-MIT",
             "name": "BSD-3-Clause OR MIT"
           }
         }
@@ -22329,6 +22332,7 @@
       "licenses": [
         {
           "license": {
+            "id": "mit-x11",
             "name": "MIT/X11"
           }
         }
@@ -24656,6 +24660,7 @@
       "licenses": [
         {
           "license": {
+            "id": "WTFPL-OR-ISC",
             "name": "WTFPL OR ISC"
           }
         }
@@ -27128,6 +27133,7 @@
       "licenses": [
         {
           "license": {
+            "id": "mit-x11",
             "name": "MIT/X11"
           }
         }
@@ -27163,6 +27169,7 @@
       "licenses": [
         {
           "license": {
+            "id": "mit-x11",
             "name": "MIT/X11"
           }
         }
@@ -28354,6 +28361,7 @@
       "licenses": [
         {
           "license": {
+            "id": "MIT-OR-WTFPL",
             "name": "(MIT OR WTFPL)"
           }
         }

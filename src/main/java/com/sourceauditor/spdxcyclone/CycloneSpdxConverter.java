@@ -20,6 +20,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import org.cyclonedx.model.Ancestors;
+import org.cyclonedx.model.AttachmentText;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.BomReference;
 import org.cyclonedx.model.Commit;
@@ -69,10 +70,12 @@ import org.spdx.library.model.enumerations.ReferenceCategory;
 import org.spdx.library.model.enumerations.RelationshipType;
 import org.spdx.library.model.license.AnyLicenseInfo;
 import org.spdx.library.model.license.ConjunctiveLicenseSet;
+import org.spdx.library.model.license.ExtractedLicenseInfo;
 import org.spdx.library.model.license.InvalidLicenseStringException;
 import org.spdx.library.model.license.LicenseInfoFactory;
 import org.spdx.library.model.license.ListedLicenses;
 import org.spdx.library.model.license.SpdxNoAssertionLicense;
+import org.spdx.library.model.license.SpdxNoneLicense;
 import org.spdx.library.referencetype.ListedReferenceTypes;
 import org.spdx.storage.IModelStore;
 import org.spdx.storage.IModelStore.IdType;
@@ -155,6 +158,7 @@ public class CycloneSpdxConverter {
 	private String documentUri;
 	private boolean converted = false;
 	private Map<String, SpdxElement> componentIdToSpdxElement = new HashMap<>();
+	private Map<String, AnyLicenseInfo> cdxLicenseIdToSpdxLicense = new HashMap<>();
 
 	/**
 	 * @param cycloneBom CycloneDX input BOM 
@@ -688,11 +692,9 @@ public class CycloneSpdxConverter {
 				}
 			}
 			if (Objects.nonNull(evidence.getLicenseChoice())) {
-				AnyLicenseInfo spdxLicenseEvidence = licenseChoiceToSpdxLicense(evidence.getLicenseChoice());
+				AnyLicenseInfo spdxLicenseEvidence = licenseChoiceToSpdxLicense(spdxPackage, evidence.getLicenseChoice());
 				if (Objects.nonNull(spdxLicenseEvidence) && !(spdxLicenseEvidence instanceof SpdxNoAssertionLicense)) {
 					spdxPackage.getAttributionText().add("Evidence license text for: "+spdxLicenseEvidence.toString());
-					//TODO: We can convert the license text found in each license choice by decoding the text (e.g. base64 decoding)
-					retainFidelity(spdxPackage, "evidence.licenseChoice", evidence.getLicenseChoice(), warnings);
 				}
 			}
 		}
@@ -838,30 +840,68 @@ public class CycloneSpdxConverter {
 			if (Objects.nonNull(licenses)) {
 				for (License lic:licenses) {
 					try {
-						retval.add(LicenseInfoFactory.parseSPDXLicenseString(lic.getId(), 
-								parentElement.getModelStore(), parentElement.getDocumentUri(), parentElement.getCopyManager()));
-						if (Objects.nonNull(lic.getAttachmentText()) && Objects.nonNull(lic.getAttachmentText().getText()) &&
-								!lic.getAttachmentText().getText().isBlank()) {
-							//TODO - we may be able to create a local license in the SPDX doc to handle this case
-							retainFidelity(parentElement, "licenseChoice.licenses.attachmentText", lic.getAttachmentText(), warnings);
-						}
-						if (Objects.nonNull(lic.getUrl()) && !lic.getUrl().isBlank()) {
-							//TODO - we may be able to create a local license in the SPDX doc to handle this case
-							retainFidelity(parentElement, "licenseChoice.licenses.url", lic.getUrl(), warnings);
-						}
+						retval.add(cdxLicenseToSpdxLicense(lic, parentElement.getModelStore(), parentElement.getDocumentUri(), parentElement.getCopyManager()));
 						if (Objects.nonNull(lic.getExtensibleTypes()) && !lic.getExtensibleTypes().isEmpty()) {
 							retainFidelity(parentElement, "licenseChoice.licenses.extensibleTypes", lic.getExtensibleTypes(), warnings);
 						}
 						if (Objects.nonNull(lic.getExtensions()) && !lic.getExtensions().isEmpty()) {
 							retainFidelity(parentElement, "licenseChoice.licenses.extensions", lic.getExtensions(), warnings);
 						}
-					} catch(InvalidLicenseStringException ex) {
-						warnings.add("Invalid license id '"+lic.getId()+"'");
+					} catch(InvalidSPDXAnalysisException ex) {
+						warnings.add("Invalid CDX license '"+lic.getId()+"'");
 					}
 				}
 			}
 		}
 		return retval;
+	}
+
+	/**
+	 * @param copyManager 
+	 * @param documentUri 
+	 * @param modelStore 
+	 * @param lic
+	 * @return
+	 * @throws InvalidSPDXAnalysisException 
+	 */
+	private synchronized AnyLicenseInfo cdxLicenseToSpdxLicense(License cdxLicense, IModelStore modelStore, String documentUri, ModelCopyManager copyManager) throws InvalidSPDXAnalysisException {
+		String id = cdxLicense.getId();
+		if (Objects.isNull(id)) {
+			id = cdxLicense.getName();
+			warnings.add("Missing CycloneDX license ID for license name "+id);
+		}
+		if (ListedLicenses.getListedLicenses().isSpdxListedLicenseId(id)) {
+			return ListedLicenses.getListedLicenses().getListedLicenseById(id);
+		}
+		if (!cdxLicenseIdToSpdxLicense.containsKey(id)) {
+			// create the extracted license info
+			ExtractedLicenseInfo eli = new ExtractedLicenseInfo(modelStore, documentUri, cdxLicenseIdToSpdxLicenseId(id), copyManager, true);
+			AttachmentText attachmentText = cdxLicense.getAttachmentText();
+			if (Objects.nonNull(attachmentText)) {
+				String licenseText = attachmentText.getText();
+				if (Objects.nonNull(licenseText) && !licenseText.isBlank()) {
+					eli.setExtractedText(licenseText);
+				}
+			}
+			String url = cdxLicense.getUrl();
+			if (Objects.nonNull(url) && !url.isBlank()) {
+				eli.getSeeAlso().add(url);
+			}
+			String name = cdxLicense.getName();
+			if (Objects.nonNull(name) && !name.isBlank()) {
+				eli.setName(name);
+			}
+ 			cdxLicenseIdToSpdxLicense.put(id, eli);
+		}
+		return cdxLicenseIdToSpdxLicense.get(id);
+	}
+
+	/**
+	 * @param id
+	 * @return
+	 */
+	private String cdxLicenseIdToSpdxLicenseId(String id) {
+		return SpdxConstants.NON_STD_LICENSE_ID_PRENUM + id.replaceAll(INVALID_REF_REGEX, "-");
 	}
 
 	/**
@@ -1130,7 +1170,7 @@ public class CycloneSpdxConverter {
         AnyLicenseInfo dataLicense;
         LicenseChoice lc = metadata.getLicenseChoice();
         if (Objects.nonNull(lc)) {
-            dataLicense = licenseChoiceToSpdxLicense(lc);
+            dataLicense = licenseChoiceToSpdxLicense(spdxDoc, lc);
         } else {
             dataLicense = ListedLicenses.getListedLicenses().getListedLicenseById(SpdxConstants.SPDX_DATA_LICENSE_ID);
         }
@@ -1175,12 +1215,21 @@ public class CycloneSpdxConverter {
 	}
 
 	/**
+	 * @param parent Parent element that the license choice will be connected to
      * @param licenseChoice cycloneDX licenseChoice
      * @return SPDX license
-     * @throws InvalidLicenseStringException
+	 * @throws CycloneConversionException 
+	 * @throws InvalidSPDXAnalysisException 
      */
-    private static AnyLicenseInfo licenseChoiceToSpdxLicense(LicenseChoice licenseChoice) throws InvalidLicenseStringException {
-        return LicenseInfoFactory.parseSPDXLicenseString(licenseChoice.getExpression());
+    private AnyLicenseInfo licenseChoiceToSpdxLicense(SpdxElement parent, LicenseChoice licenseChoice) throws InvalidSPDXAnalysisException, CycloneConversionException {
+        List<AnyLicenseInfo> licenses = convertCycloneLicenseInfo(parent, licenseChoice);
+        if (licenses.size() == 1) {
+        	return licenses.get(0);
+        } else if (licenses.size() == 0) {
+        	return new SpdxNoneLicense();
+        } else {
+        	return parent.createConjunctiveLicenseSet(licenses);
+        }
         
     }
 
