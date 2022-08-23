@@ -92,8 +92,10 @@ public class CycloneToSpdxTest {
 							converter.convert();
 							SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, converter.getDocumentUri(), copyManager);
 							List<String> verify = doc.verify();
-							if (!verify.isEmpty()) {
-								fail("SBOM "+path.getFileName()+" has "+verify.size()+" verification errors.");
+							for (String warning:verify) {
+								if (!warning.contains("Missing required license text")) {
+									fail("Unexpected warning: "+warning);
+								}
 							}
 						} catch (InvalidSPDXAnalysisException
 								| CycloneConversionException e) {
@@ -231,10 +233,6 @@ public class CycloneToSpdxTest {
 								assertTrue(foundSha1);
 								assertTrue(foundMd5);
 								assertEquals("Apache-2.0", pkg.getLicenseDeclared().toString());
-								expectedAnnotations.add("text/plain");
-								expectedAnnotations.add("base64");
-								expectedAnnotations.add("License text here");
-								expectedAnnotations.add("https://www.apache.org/licenses/LICENSE-2.0.txt");
 								ExternalRef[] externalRefs = pkg.getExternalRefs().toArray(new ExternalRef[pkg.getExternalRefs().size()]);
 								assertEquals(1, externalRefs.length);
 								assertEquals(ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("purl"), externalRefs[0].getReferenceType());
@@ -350,8 +348,12 @@ public class CycloneToSpdxTest {
 		CycloneSpdxConverter converter = new CycloneSpdxConverter(cycloneBom, store);
 		converter.convert();
 		final SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, converter.getDocumentUri(), new ModelCopyManager());
-	        final List<String> verify = doc.verify();
-		assertTrue(verify.toString(), verify.isEmpty());
+	    final List<String> verify = doc.verify();
+		for (String warning:verify) {
+			if (!warning.contains("Missing required license text")) {
+				fail("Unexpected warning: "+warning);
+			}
+		}
 		SpdxElement[] described = doc.getDocumentDescribes().toArray(new SpdxElement[doc.getDocumentDescribes().size()]);
 		SpdxPackage pkg = (SpdxPackage)described[0];
 		// Primary package purpos
