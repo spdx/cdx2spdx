@@ -24,7 +24,7 @@ Any CycloneDX properties which do not map to an existing SPDX property is added 
 
 where `<propertyname>` is the CycloneDX property name and `<propertyJSONvalue>` is a JSON string representation of the property value.
 
-CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneDX type file, if there are any properties which require a package (e.g. supplier, originator), the component is converted to an SPDX package with the packageFileName having the value of the component name.  If a CycloneDX type file has no package properties, it is converted to an SPDX File.  This is basically a Duck Typing approach since Cyclone DX does not distinguish different classes for files and packages.
+CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneDX type file, if there are any properties which require a package (e.g. supplier, originator), the component is converted to an SPDX package with the packageFileName having the value of the component name.  If a CycloneDX type file has no package properties, it is converted to an SPDX File.  This is basically a Duck Typing approach to distinguish CycloneDX files which have distribution information consistent with an SPDX package from CycloneDX files which do not contain SPDX package level information.
 
 ## Development
 
