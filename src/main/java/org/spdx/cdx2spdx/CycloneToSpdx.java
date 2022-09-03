@@ -137,7 +137,6 @@ public class CycloneToSpdx {
     /**
 	 * @param cycloneDxFilePath
 	 * @param spdxFilePath
-	 * @param warnings
      * @throws CycloneConversionException 
 	 */
 	public static List<String> cycloneDxToSpdx(String cycloneDxFilePath, String spdxFilePath) throws CycloneConversionException {
