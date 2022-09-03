@@ -52,3 +52,5 @@ CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneD
 ## Contributing
 Contributions are welcome.  See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
 
+## Acknowledgements
+This repository references and uses the [CycloneDX Specification](https://github.com/CycloneDX/specification) which is licensed under the Apache 2.0 license.
