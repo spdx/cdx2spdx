@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package com.sourceauditor.spdxcyclone;
+package org.spdx.cdx2spdx;
 
 import static org.junit.Assert.*;
 
@@ -26,6 +26,9 @@ import org.cyclonedx.parsers.Parser;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.spdx.cdx2spdx.CycloneConversionException;
+import org.spdx.cdx2spdx.CycloneSpdxConverter;
+import org.spdx.cdx2spdx.CycloneToSpdx;
 import org.spdx.jacksonstore.MultiFormatStore;
 import org.spdx.jacksonstore.MultiFormatStore.Format;
 import org.spdx.jacksonstore.MultiFormatStore.Verbose;

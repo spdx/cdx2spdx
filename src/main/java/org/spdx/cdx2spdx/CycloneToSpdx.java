@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package com.sourceauditor.spdxcyclone;
+package org.spdx.cdx2spdx;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -157,7 +157,7 @@ public class CycloneToSpdx {
             modelStore = fileTypeToStore(fileToFileType(outFile));
         } catch (InvalidSPDXAnalysisException e) {
         	throw new CycloneConversionException("Unable to create SPDX model store: "+e.getMessage(), e);
-        } catch (com.sourceauditor.spdxcyclone.InvalidFileNameException e) {
+        } catch (org.spdx.cdx2spdx.InvalidFileNameException e) {
         	throw new CycloneConversionException("Cyclone DX Parsing Exception: "+e.getMessage(), e);
         }
         File inFile = new File(cycloneDxFilePath);

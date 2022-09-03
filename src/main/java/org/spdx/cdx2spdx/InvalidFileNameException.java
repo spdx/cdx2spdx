@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package com.sourceauditor.spdxcyclone;
+package org.spdx.cdx2spdx;
 
 /**
  * @author Gary O'Neall

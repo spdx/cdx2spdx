@@ -1,4 +1,4 @@
-# spdxcyclone
+# cdx2spdx
 
 Prototype utility that converts SBOM documents from [CycloneDX](https://cyclonedx.org/) to [SPDX](https://spdx.dev/).
 
@@ -6,7 +6,7 @@ Prototype utility that converts SBOM documents from [CycloneDX](https://cycloned
 This code is still under development and may not be considered stable.
 
 ## Usage
-`java -jar spdxcyclone-[version]-jar-with-dependencies.jar cyclonedx.json spdx.json`
+`java -jar cdx2spdx-[version]-jar-with-dependencies.jar cyclonedx.json spdx.json`
 
 where `cyclonedx.json` is an existing CycloneDX JSON file and `spdx.json` is a file path to the resulting SPDX file generated from the CycloneDX file.
 
@@ -35,13 +35,13 @@ CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneD
     To run the unit test suite, you will need to include the git submodules that contain various test resources.
     Otherwise, you may see test errors like the ones below:
 
-        testAllSbomExamples(com.sourceauditor.spdxcyclone.CycloneToSpdxTest)  Time elapsed: 0.005 sec  <<< ERROR!
+        testAllSbomExamples(org.spdx.cdx2spdx.CycloneToSpdxTest)  Time elapsed: 0.005 sec  <<< ERROR!
         java.nio.file.NoSuchFileException: src/test/resources/bom-examples/SBOM
                 at java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)
 
     or:
 
-        com.sourceauditor.spdxcyclone.CycloneConversionException: File src/test/resources/specification/tools/src/test/resources/1.4/valid-bom-1.4.json does not exist.
+        org.spdx.cdx2spdx.CycloneConversionException: File src/test/resources/specification/tools/src/test/resources/1.4/valid-bom-1.4.json does not exist.
 
     Run the command below after a normal `git clone` to also pull down submodules required by the test suite:
 
@@ -52,3 +52,5 @@ CycloneDX Components are mapped to SPDX Packages in most cases. For the CycloneD
 ## Contributing
 Contributions are welcome.  See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information.
 
+## Acknowledgements
+This repository references and uses the [CycloneDX Specification](https://github.com/CycloneDX/specification) which is licensed under the Apache 2.0 license.

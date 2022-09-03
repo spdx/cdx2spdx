@@ -2,13 +2,13 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	
-	<groupId>com.sourceauditor</groupId>
-	<artifactId>spdxcyclone</artifactId>
+	<groupId>org.spdx</groupId>
+	<artifactId>cdx2spdx</artifactId>
 	<version>0.0.2-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	
-	<name>spdxcyclone</name>
-	<url>https://github.com/goneall/spdxcyclone</url>
+	<name>cdx2spdx</name>
+	<url>https://github.com/spdx/cdx2spdx</url>
 	<licenses>
 		<license>
 			<name>The Apache Software License, Version 2.0</name>
@@ -30,18 +30,18 @@
 		<url>http://spdx.org</url>
 	</organization>
 	<scm>
-		<url>https://github.com/goneall/spdxcyclone</url>
-		<connection>https://github.com/goneall/spdxcyclone.git</connection>
-		<developerConnection>https://github.com/goneall/spdxcyclone.git</developerConnection>
+		<url>https://github.com/spdx/cdx2spdx</url>
+		<connection>https://github.com/spdx/cdx2spdx.git</connection>
+		<developerConnection>https://github.com/spdx/cdx2spdx.git</developerConnection>
 	</scm>
 	<issueManagement>
 		<system>Github</system>
-		<url>https://github.com/goneall/spdxcyclone/issues</url>
+		<url>https://github.com/spdx/cdx2spdx/issues</url>
 	</issueManagement>
 	<description>Command line utility to convert CycloneDX SBOM files to SPDX Documents</description>
 	<ciManagement>
 		<system>Github Actions</system>
-		<url>https://github.com/goneall/spdxcyclone/actions</url>
+		<url>https://github.com/spdx/cdx2spdx/actions</url>
 	</ciManagement>
     <distributionManagement>
       <repository>
@@ -54,7 +54,7 @@
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	  <sonar.host.url>https://sonarcloud.io</sonar.host.url>
 	  <sonar.organization>spdx</sonar.organization>
-	  <sonar.projectKey>spdxcyclone</sonar.projectKey>
+	  <sonar.projectKey>cdx2spdx</sonar.projectKey>
     </properties>
 	<profiles>
 		<profile>
@@ -184,7 +184,7 @@
 		  <configuration>
 		    <archive>
 		      <manifest>
-		        <mainClass>com.sourceauditor.spdxcyclone.CycloneToSpdx</mainClass>
+		        <mainClass>org.spdx.cdx2spdx.CycloneToSpdx</mainClass>
 		      </manifest>
 		    </archive>
 		    <descriptorRefs>
@@ -251,7 +251,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<spdxDocumentNamespace>http://sourceauditor.com/spdxdocs/spdxcyclonedx-{$version}</spdxDocumentNamespace>					
+					<spdxDocumentNamespace>http://spdx.org/spdxdocs/cdx2spdx-{$version}</spdxDocumentNamespace>					
 					<defaultFileCopyright>Copyright (c) 2022 Source Auditor Inc.</defaultFileCopyright>
 					<defaultFileContributors>
 						<param>Gary O'Neall</param>

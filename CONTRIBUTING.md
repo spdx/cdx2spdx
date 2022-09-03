@@ -1,14 +1,14 @@
 Contributing
 ============
-Thank you for your interest in `spdxcyclone`. The project is open-source software, and bug reports, suggestions, and most especially patches are welcome.
+Thank you for your interest in `cdx2spdx`. The project is open-source software, and bug reports, suggestions, and most especially patches are welcome.
 
 Issues
 ------
-`spdxcyclone` has a [project page on GitHub](https://github.com/goneall/spdxcyclone) where you can [create an issue](https://github.com/goneall/spdxcyclone/issues/new/choose) to report a bug, make a suggestion, or propose a substantial change or improvement that you might like to make.
+`cdx2spdx` has a [project page on GitHub](https://github.com/spdx/cdx2spdx) where you can [create an issue](https://github.com/spdx/cdx2spdx/issues/new/choose) to report a bug, make a suggestion, or propose a substantial change or improvement that you might like to make.
 
 Pull Requests
 -------
-The source code for `spdxcyclone` is hosted on [github.com/goneall/spdxcyclone](https://github.com/goneall/spdxcyclone). Please review [open pull requests](https://github.com/goneall/spdxcyclone/pulls) and [active branches](https://github.com/goneall/spdxcyclone/branches) before committing time to a substantial revision. Work along similar lines may already be in progress.
+The source code for `cdx2spdx` is hosted on [github.com/spdx/cdx2spdx](https://github.com/spdx/cdx2spdx). Please review [open pull requests](https://github.com/spdx/cdx2spdx/pulls) and [active branches](https://github.com/spdx/cdx2spdx/branches) before committing time to a substantial revision. Work along similar lines may already be in progress.
 
 To submit a pull request via GitHub, fork the repository, create a topic branch from `main` for your work, and send a pull request when ready. If you would prefer to send a patch or grant access to pull from your own Git repository, please contact the project's contributors by e-mail.
 
