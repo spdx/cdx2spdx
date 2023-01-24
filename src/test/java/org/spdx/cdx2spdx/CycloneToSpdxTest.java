@@ -366,7 +366,12 @@ public class CycloneToSpdxTest {
 		assertEquals(ChecksumAlgorithm.SHA3_256, pkg.getChecksums().toArray(new Checksum[1])[0].getAlgorithm());
 		
 		// Advisory external reference
-		assertEquals(ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("advisory"),
-				pkg.getExternalRefs().toArray(new ExternalRef[1])[0].getReferenceType());
+		boolean found = false;
+		for (ExternalRef externalRef:pkg.getExternalRefs()) {
+			if (ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("advisory").equals(externalRef.getReferenceType())) {
+				found = true;
+			}
+		}
+		assertTrue(found);
     }
 }
