@@ -44,7 +44,7 @@ public class CycloneToSpdx {
     
     static final int ERROR_STATUS = 1;
     
-    static final String VERSION = "0.0.2";
+    static final String VERSION = "0.0.3";
     
     public enum SerFileType {
         JSON, RDFXML, XML, XLS, XLSX, YAML, TAG
