@@ -12,6 +12,14 @@ where `cyclonedx.json` is an existing CycloneDX JSON file and `spdx.json` is a f
 
 Although not tested, XML formats should work for CycloneDX and all supported SPDX files formats should work for the output file (e.g. tag/value, XLSX, XML, RDF/XML, YAML).
 
+### Dockerfile
+
+You can also use the included Dockerfile to run this tool using the following build commands. Please note that the input file names are hardcoded  as `cyclonedx.json` and `spdx.json` and should be changed according to the desired result.
+
+`docker build -t cdx2spdx .`
+
+`docker run -v <directory where cyclonedx.json is located>:/cdx2spdx/sboms  -it --rm cdx2spdx`
+
 ## Design and Implementation Notes
 
 The mappings from CycloneDX to SPDX can be found in the [SPDX-CycloneDX-Mapping Google Sheet](https://docs.google.com/spreadsheets/d/1PIiSYLJHlt8djG5OoOYniy_I-J31UMhBKQ62UUBHKVA/edit?usp=sharing).
