@@ -680,6 +680,13 @@ public class CycloneSpdxConverter {
 					purl, null);
 			spdxPackage.addExternalRef(purlRef);
 		}
+		String cpe = component.getCpe();
+		if (Objects.nonNull(cpe) && !cpe.isBlank()) {
+			ExternalRef cpeRef = spdxPackage.createExternalRef(ReferenceCategory.SECURITY, 
+					ListedReferenceTypes.getListedReferenceTypes().getListedReferenceTypeByName("cpe23Type"), 
+					cpe, null);
+			spdxPackage.addExternalRef(cpeRef);
+		}
 		Evidence evidence = component.getEvidence();
 		if (Objects.nonNull(evidence)) {
 			List<Copyright> copyrights = evidence.getCopyright();
@@ -948,7 +955,7 @@ public class CycloneSpdxConverter {
         for (ExternalReference externalRef:externalReferences) {
             ExternalReference.Type type = externalRef.getType();
             String url = externalRef.getUrl();
-            if (Objects.isNull(url) || Objects.isNull(type)) {
+            if (Objects.isNull(url) || url.isBlank() || Objects.isNull(type)) {
                 warnings.add("Skipping empty externalReference");
                 continue;
             }
@@ -1018,8 +1025,13 @@ public class CycloneSpdxConverter {
                 		new ReferenceType("http://cyclonedx.org/referenctype/support"), url, comment));
                 break;
             case DISTRIBUTION:
-                spdxPackage.setDownloadLocation(url);
-                break;
+				try {
+                  spdxPackage.setDownloadLocation(url);
+				}
+				catch (InvalidSPDXAnalysisException e) {
+					warnings.add("downloadLocation cannot be set a non-url value found in 'externalReference' of type 'distribution': " + url);
+				}  
+				break;
             case LICENSE:
             	spdxPackage.addExternalRef(spdxPackage.createExternalRef(ReferenceCategory.OTHER, 
                 		new ReferenceType("http://cyclonedx.org/referenctype/license"), url, comment));
