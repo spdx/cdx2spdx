@@ -1186,7 +1186,15 @@ public class CycloneSpdxConverter {
         } else {
             dataLicense = ListedLicenses.getListedLicenses().getListedLicenseById(SpdxConstants.SPDX_DATA_LICENSE_ID);
         }
-        spdxDoc.setDataLicense(dataLicense);
+        try {
+        	spdxDoc.setDataLicense(dataLicense);
+        } catch (InvalidSPDXAnalysisException ex) {
+        	// try without strict - we'll allow non CC0 licenses per issue #35
+        	spdxDoc.setStrict(false);
+        	spdxDoc.setDataLicense(dataLicense);
+        	spdxDoc.setStrict(true);
+        	warnings.add("CycloneDX data license is incompatible with the SPDX standard - must be CC0");
+        }
         List<Property> properties = metadata.getProperties();
         if (Objects.nonNull(properties) && properties.size() > 0) {
             retainFidelity(spdxDoc, "metadata.properties", properties, warnings);

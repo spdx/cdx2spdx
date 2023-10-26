@@ -26,9 +26,6 @@ import org.cyclonedx.parsers.Parser;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.spdx.cdx2spdx.CycloneConversionException;
-import org.spdx.cdx2spdx.CycloneSpdxConverter;
-import org.spdx.cdx2spdx.CycloneToSpdx;
 import org.spdx.jacksonstore.MultiFormatStore;
 import org.spdx.jacksonstore.MultiFormatStore.Format;
 import org.spdx.jacksonstore.MultiFormatStore.Verbose;
@@ -337,8 +334,21 @@ public class CycloneToSpdxTest {
 		CycloneSpdxConverter converter = new CycloneSpdxConverter(cycloneBom, store);
 		converter.convert();
 		final SpdxDocument doc = SpdxModelFactory.createSpdxDocument(store, converter.getDocumentUri(), new ModelCopyManager());
-	        final List<String> verify = doc.verify();
+	    final List<String> verify = doc.verify();
 		assertTrue(verify.toString(), verify.isEmpty());
+    }
+    
+    @Test
+    public void testInvalidDataLicense() throws ParseException, CycloneConversionException, InvalidSPDXAnalysisException {
+        final File invalidDataLicenseBom = new File(Paths.get(CDX_BOMS.toString(), "invalid-data-license").toFile(), "invalid-data-license.sbom.json");
+		final Bom cycloneBom = BomParserFactory.createParser(invalidDataLicenseBom).parse(invalidDataLicenseBom);
+	
+		final IModelStore store = new InMemSpdxStore();
+		CycloneSpdxConverter converter = new CycloneSpdxConverter(cycloneBom, store);
+		converter.convert();
+		final SpdxDocument doc = new SpdxDocument(store, converter.getDocumentUri(), new ModelCopyManager(), false);
+	    final List<String> verify = doc.verify();
+		assertEquals(verify.toString(), 1, verify.size());
     }
     
     static final Path V23BOM = Paths.get("src", "test", "resources", "bom.json");
