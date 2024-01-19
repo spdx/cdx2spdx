@@ -31,4 +31,12 @@
       <packageUrl regex="true">^pkg:maven/org\.apache\.poi/poi\-ooxml\-schemas@.*$</packageUrl>
       <cve>CVE-2022-26336</cve>
    </suppress>
+   <suppress>
+      <notes><![CDATA[
+      file name: jackson-databind-2.14.0-rc1.jar
+      the vendor's perspective is that this is not a valid vulnerability report, because the steps of constructing a cyclic data structure and trying to serialize it cannot be achieved by an external attacker.
+      ]]></notes>
+      <packageUrl regex="true">^pkg:maven/com\.fasterxml\.jackson\.core/jackson\-databind@.*$</packageUrl>
+      <cve>CVE-2023-35116</cve>
+   </suppress>
 </suppressions>
