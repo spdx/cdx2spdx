@@ -3,7 +3,7 @@
 	
 	<groupId>org.spdx</groupId>
 	<artifactId>cdx2spdx</artifactId>
-	<version>0.1.5</version>
+	<version>0.1.6-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	
 	<name>cdx2spdx</name>
@@ -32,7 +32,7 @@
 		<url>https://github.com/spdx/cdx2spdx</url>
 		<connection>scm:git:git@github.com:spdx/cdx2spdx.git</connection>
 		<developerConnection>scm:git:git@github.com:spdx/cdx2spdx.git</developerConnection>
-		<tag>v0.1.5</tag>
+		<tag>main</tag>
 	</scm>
 	<issueManagement>
 		<system>Github</system>
